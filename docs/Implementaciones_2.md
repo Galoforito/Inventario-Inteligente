@@ -162,7 +162,7 @@ Estas tareas no forman parte de los merges ya hechos:
 2. **Ciclo de compra:** bloquear recepción hasta que la orden esté confirmada, tanto en la interfaz como en la función/RPC de base de datos. El envío simulado en demo cuenta como enviado, pero requiere confirmación manual.
 3. **Reabastecimiento desde alertas:** añadir al correo de stock el botón para iniciar un borrador. El botón del Dashboard ya está disponible para productos en atención con proveedor, pero la RPC de orden rápida todavía rechaza productos con stock mayor que cero.
 4. **Correo de alerta de stock:** configurar y validar envío SMTP real al personal interno; registrar tres envíos en `EVIDENCIA_ALERTAS.md`. La verificación real del correo de entrega incompleta es independiente y no sustituye esta evidencia.
-5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC. Asegurar que `consulta` pueda ver el listado y detalle de órdenes sin capacidad de mutación.
+5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC para todos los roles. Consulta ya puede ver listado/detalle de órdenes desde la interfaz sin controles de modificación; falta confirmar el aislamiento en el backend.
 6. **Aceptación funcional:** revisar Dashboard con datos reales y comparar sus cifras con Inventario; volver a ejecutar `python scripts/evaluar_pronostico.py` tras el cambio de ventana/promedio; verificar la cuenta y los datos demo en Supabase remoto.
 7. **Entrega académica:** terminar documentación académica, presentación y demo en vivo.
 8. **Opcional:** trasladar a la ventana modal propia las confirmaciones de Registrar recepción, Eliminar producto y Borrar todos los productos.

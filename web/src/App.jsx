@@ -58,7 +58,7 @@ export default function App() {
         <Route path="/movimientos" element={<Movimientos />} />
         <Route path="/alertas" element={<Alertas />} />
         <Route path="/proveedores" element={perfil.role === "admin" || perfil.role === "compras" ? <Proveedores /> : <Navigate to="/" replace />} />
-        <Route path="/ordenes" element={perfil.role !== "consulta" ? <Ordenes /> : <Navigate to="/" replace />} />
+        <Route path="/ordenes" element={<Ordenes />} />
         <Route path="/usuarios" element={perfil.role === "admin" ? <Usuarios /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
