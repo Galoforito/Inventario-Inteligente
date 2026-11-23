@@ -1,10 +1,16 @@
 # Cambios recientes
 
+## Órdenes de compra para Consulta
+
+- El rol `consulta` ahora puede abrir el apartado Órdenes, ver el listado y detalle, y exportar la orden a PDF.
+- Se mantienen ocultas las acciones de envío, recepción y reporte de entrega incompleta; la capacidad de lectura ya estaba permitida por las políticas existentes.
+- Implementación en `fix/consulta-ordenes-lectura`; falta revisar UI/RLS/RPC del resto de roles como parte de la validación final.
+
 ## Orden rápida para productos en atención
 
 - La migración `0025_orden_rapida_atencion.sql` amplía el borrador rápido a productos con stock disponible si están bajo mínimo o su cobertura calculada con ventas de 30 días es de hasta 14 días.
 - El servidor vuelve a calcular la cobertura y valida el estado al ejecutar la RPC; un producto que ya dejó de requerir atención no genera una orden.
-- La migración está en `feat/orden-rapida-bajo-minimo` y todavía no se ha ejecutado en Supabase.
+- La migración `0025` se ejecutó y registró en el proyecto remoto `Inventario` el 2026-11-23. La RPC se verificó con SQL de solo lectura; no usar `db push` por la brecha parcial de `0011`.
 
 ## Crear borradores desde correos de alerta
 
@@ -17,7 +23,7 @@
 - Las PR #2, #3, #4, #6 y #5 quedaron fusionadas en `main`, en ese orden de dependencias; la PR #6 se integró antes de #5 por la secuencia de migraciones.
 - Se revisó y resolvió el conflicto documental de `PLAN_ENTREGA_FINAL.md`; no hubo conflicto pendiente de código.
 - Verificación local sobre el código integrado: **227 pruebas aprobadas** y `npm run build` correcto. GitHub no reportó checks automatizados.
-- Las migraciones `0021`–`0024` ya estaban aplicadas y verificadas en Supabase; durante esta integración no se ejecutaron migraciones.
+- Las migraciones `0021`–`0024` ya estaban aplicadas y verificadas en Supabase; en la revisión posterior se ejecutó únicamente `0025` con `db query` y se registró esa versión sin usar `db push`.
 - Las tareas funcionales restantes y sus criterios están listados en `PLAN_ENTREGA_FINAL.md` y `Implementaciones_2.md`. La evidencia de tres correos SMTP de alertas de stock sigue pendiente en `EVIDENCIA_ALERTAS.md`.
 
 ## Historial de alertas y codificación
@@ -115,9 +121,3 @@ Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna 
 - `0018`: catálogo persistente, valor predeterminado, trigger y política de lectura presentes.
 - `0019`: restricción de motivo global incluye `compra`.
 - Se registraron `0012`–`0019` como aplicadas con `supabase migration repair` después de verificar sus efectos; el comando no ejecutó SQL. `0011` permanece sin registrar por estar aplicada solo parcialmente. No ejecutar `supabase db push` mientras esa brecha exista.
-
-## Orden rápida para productos en atención
-
-- La migración `0025_orden_rapida_atencion.sql` amplía el borrador rápido a productos con stock disponible si están bajo mínimo o su cobertura calculada con ventas de 30 días es de hasta 14 días.
-- El servidor vuelve a calcular la cobertura y valida el estado al ejecutar la RPC; un producto que ya dejó de requerir atención no genera una orden.
-- La migración está en `feat/orden-rapida-bajo-minimo` y todavía no se ha ejecutado en Supabase.

@@ -26,7 +26,7 @@ Las PR #2–#6 están cerradas como fusionadas en `Galoforito/Inventario-Intelig
 
 ## 2. Migraciones de base de datos
 
-Las migraciones activas están verificadas en el Supabase remoto. El historial registra `0001`–`0010`, `0012`–`0019` y `0021`–`0024`; `0011` solo se aplicó parcialmente y queda sin registrar, `0020` está reservada. No usar `db push` mientras `0011` siga pendiente.
+Las migraciones activas están verificadas en el Supabase remoto. El historial registra `0001`–`0010`, `0012`–`0019` y `0021`–`0025`; `0011` solo se aplicó parcialmente y queda sin registrar, `0020` está reservada. No usar `db push` mientras `0011` siga pendiente.
 
 | Migración | Qué hace | Estado remoto |
 |---|---|---|
@@ -39,7 +39,7 @@ Las migraciones activas están verificadas en el Supabase remoto. El historial r
 | `0022_alerta_ventas_diarias.sql` | Corrige el promedio ponderado de las alertas cuando hay varias ventas el mismo día | Aplicada, verificada y registrada 2026-11-23 |
 | `0023_id_movimiento_importado.sql` | ID opcional estable para deduplicar importaciones por SKU + ID | Aplicada, verificada y registrada 2026-11-23 |
 | `0024_entrega_incompleta.sql` | Tipo de aviso `entrega_incompleta`, `ordenes_compra.incompleta_alert_id`, función `preparar_correo_entrega_incompleta` | Efectos aplicados y verificados 2026-11-23; registrada como `0024` |
-| `0025_orden_rapida_atencion.sql` | Extiende la orden rápida a productos todavía en stock si están bajo mínimo o tienen cobertura de hasta 14 días | Rama `feat/orden-rapida-bajo-minimo`; pendiente de revisión/aplicación remota. No ejecutada en Supabase. |
+| `0025_orden_rapida_atencion.sql` | Extiende la orden rápida a productos todavía en stock si están bajo mínimo o tienen cobertura de hasta 14 días | Ejecutada y registrada en el proyecto remoto `Inventario` el 2026-11-23; se verificó por SQL de solo lectura que la RPC aplica el límite de cobertura y filtra solo ventas. |
 
 La Edge Function `revisar-inventario` se volvió a desplegar el 2026-11-23 con `npx supabase functions deploy revisar-inventario --use-api`.
 
@@ -161,9 +161,9 @@ Estas tareas no forman parte de los merges ya hechos:
 
 1. **Proveedor único por producto:** hacer obligatoria la asignación de un proveedor activo al crear producto y permitir asignarlo/editarlo desde Inventario y Proveedores. `0020` sigue reservada y no existe como migración en `main`; acordar el número disponible antes de crear una migración, sin asumir que debe ejecutarse `0020`.
 2. **Ciclo de compra:** bloquear recepción hasta que la orden esté confirmada, tanto en la interfaz como en la función/RPC de base de datos. El envío simulado en demo cuenta como enviado, pero requiere confirmación manual.
-3. **Reabastecimiento desde alertas:** las ramas `feat/orden-rapida-bajo-minimo` y `feat/orden-desde-alerta-stock` añaden la RPC para productos en atención y el botón por producto en el correo. Falta revisar/integrar ambas en ese orden, aplicar `0025`, desplegar la Edge Function y verificar el flujo con una alerta real. Al abrir el enlace, un usuario con rol Admin/Compras crea el borrador; otros roles no pueden hacerlo.
+3. **Reabastecimiento desde alertas:** `0025` ya está aplicada y registrada. La PR #9 (`feat/orden-desde-alerta-stock`) añade el botón por producto al correo de stock; falta integrarla, desplegar la Edge Function y verificar el flujo con correo real. Al abrir el enlace, una sesión Admin/Compras crea el borrador; otros roles no pueden hacerlo.
 4. **Correo de alerta de stock:** configurar y validar envío SMTP real al personal interno; registrar tres envíos en `EVIDENCIA_ALERTAS.md`. La verificación real del correo de entrega incompleta es independiente y no sustituye esta evidencia.
-5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC. Asegurar que `consulta` pueda ver el listado y detalle de órdenes sin capacidad de mutación.
+5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC para todos los roles. Consulta ya puede ver listado/detalle de órdenes desde la interfaz sin controles de modificación; falta confirmar el aislamiento en el backend.
 6. **Aceptación funcional:** revisar Dashboard con datos reales y comparar sus cifras con Inventario; volver a ejecutar `python scripts/evaluar_pronostico.py` tras el cambio de ventana/promedio; verificar la cuenta y los datos demo en Supabase remoto.
 7. **Entrega académica:** terminar documentación académica, presentación y demo en vivo.
 8. **Opcional:** trasladar a la ventana modal propia las confirmaciones de Registrar recepción, Eliminar producto y Borrar todos los productos.
