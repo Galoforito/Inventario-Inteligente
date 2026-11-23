@@ -155,13 +155,13 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 
 ---
 
-## 8. Pendiente después de integrar PR #2–#6
+## 8. Pendiente después de integrar PR #2–#9
 
-Estas tareas no forman parte de los merges ya hechos:
+Pendientes funcionales y de aceptación tras integrar las PR #2–#9:
 
 1. **Proveedor único por producto:** hacer obligatoria la asignación de un proveedor activo al crear producto y permitir asignarlo/editarlo desde Inventario y Proveedores. `0020` sigue reservada y no existe como migración en `main`; acordar el número disponible antes de crear una migración, sin asumir que debe ejecutarse `0020`.
 2. **Ciclo de compra:** bloquear recepción hasta que la orden esté confirmada, tanto en la interfaz como en la función/RPC de base de datos. El envío simulado en demo cuenta como enviado, pero requiere confirmación manual.
-3. **Reabastecimiento desde alertas:** `0025` ya está aplicada y registrada. La PR #9 (`feat/orden-desde-alerta-stock`) añade el botón por producto al correo de stock; falta integrarla, desplegar la Edge Function y verificar el flujo con correo real. Al abrir el enlace, una sesión Admin/Compras crea el borrador; otros roles no pueden hacerlo.
+3. **Reabastecimiento desde alertas:** la PR #9 quedó fusionada y `0025` está aplicada/verificada. Admin/Compras puede abrir el enlace del correo para crear un borrador; otros roles no pueden. Falta desplegar la Edge Function y verificar un correo real.
 4. **Correo de alerta de stock:** configurar y validar envío SMTP real al personal interno; registrar tres envíos en `EVIDENCIA_ALERTAS.md`. La verificación real del correo de entrega incompleta es independiente y no sustituye esta evidencia.
 5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC para todos los roles. Consulta ya puede ver listado/detalle de órdenes desde la interfaz sin controles de modificación; falta confirmar el aislamiento en el backend.
 6. **Aceptación funcional:** revisar Dashboard con datos reales y comparar sus cifras con Inventario; volver a ejecutar `python scripts/evaluar_pronostico.py` tras el cambio de ventana/promedio; verificar la cuenta y los datos demo en Supabase remoto.

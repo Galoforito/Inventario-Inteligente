@@ -14,18 +14,15 @@
 
 ## Crear borradores desde correos de alerta
 
-- Las alertas de stock agregan un enlace por producto para crear un borrador desde el Dashboard. Al abrirlo con sesión de Admin o Compras, la app valida el producto mediante `crear_orden_rapida` y lleva a la orden creada.
-- El correo HTML y el texto plano incluyen las acciones; `APP_URL` es requerido para generar los enlaces.
-- La implementación está en `feat/orden-desde-alerta-stock`, apilada sobre `feat/orden-rapida-bajo-minimo`. Falta revisar, integrar, aplicar la migración `0025`, desplegar la Edge Function y verificar envío SMTP real.
-
+- La PR #9 quedó fusionada en `main` el 2026-11-23. Las alertas de stock incluyen un enlace por producto; Admin y Compras crean el borrador validado por Supabase y llegan a Órdenes.
+- Los tests verifican acciones seguras por producto, creación desde el enlace y bloqueo para Consulta. La plantilla de correo requiere `APP_URL` para añadir enlaces.
+- La Edge Function aún debe desplegarse para activar la versión en producción y debe comprobarse un envío SMTP real. No se enviaron correos reales en esta integración.
 ## Integración de funcionalidades de entrega final — 2026-11-23
 
-- Las PR #2, #3, #4, #6 y #5 quedaron fusionadas en `main`, en ese orden de dependencias; la PR #6 se integró antes de #5 por la secuencia de migraciones.
-- Se revisó y resolvió el conflicto documental de `PLAN_ENTREGA_FINAL.md`; no hubo conflicto pendiente de código.
-- Verificación local sobre el código integrado: **227 pruebas aprobadas** y `npm run build` correcto. GitHub no reportó checks automatizados.
-- Las migraciones `0021`–`0024` ya estaban aplicadas y verificadas en Supabase; en la revisión posterior se ejecutó únicamente `0025` con `db query` y se registró esa versión sin usar `db push`.
-- Las tareas funcionales restantes y sus criterios están listados en `PLAN_ENTREGA_FINAL.md` y `Implementaciones_2.md`. La evidencia de tres correos SMTP de alertas de stock sigue pendiente en `EVIDENCIA_ALERTAS.md`.
-
+- Las PR #2–#9 están fusionadas en `main` del fork. Las PR #7, #8 y #9 se integraron en orden de dependencia.
+- Verificación local final: **231 pruebas aprobadas** y `npm run build` correcto. El lint remoto de Supabase (`public`, errores) no encontró errores de esquema.
+- La migración `0025` se ejecutó con `db query`, se registró y sus efectos se verificaron en SQL de solo lectura. `0011` sigue parcialmente aplicada y sin registrar; no usar `db push`.
+- La acción de reabastecimiento desde el correo está integrada; queda desplegar la Edge Function y evidenciar correos SMTP reales en `EVIDENCIA_ALERTAS.md`.
 ## Historial de alertas y codificación
 
 - La reposición hasta el mínimo se calcula como faltante por costo unitario del catálogo. El costo sugerido por pronóstico queda separado.
