@@ -1,21 +1,19 @@
 # Evidencia de alertas
 
-## Estado de evidencia para alertas de inventario
+## Alertas reales de stock
 
-En este checkout no hay credenciales SMTP ni acceso a un proyecto Supabase configurado. Por ello, la evidencia de **tres correos reales de alerta de stock al personal interno** sigue pendiente; no se inventan IDs, estados de entrega ni tiempos. El modo por defecto sin SMTP queda registrado como `simulado` y la aplicación lo muestra explícitamente. La verificación de un correo real de entrega incompleta al proveedor está documentada en `Implementaciones_2.md` y es un flujo distinto.
+Verificación de solo lectura en Supabase producción `Inventario`, el 2026-11-23. Hay **9** alertas `stock_bajo` con estado `enviado`, cada una con un `message_id` SMTP distinto; se muestran tres ejemplos. Los destinatarios e IDs están redactados.
 
-## Evidencia que registra la aplicación
+| # | Detección (hora CDMX) | Envío (hora CDMX) | ID SMTP redactado | Destinatario redactado | Estado | Intentos | Segundos detección→envío |
+|---:|---|---|---|---|---|---:|---:|
+| 1 | 2026-11-18 19:52:00.621 | 2026-11-18 19:52:02.118 | `<1f32738…` | `g***@iest.edu.mx` | `enviado` | 1 | 1.50 |
+| 2 | 2026-11-20 09:26:00.335 | 2026-11-20 09:26:02.234 | `<20caeda…` | `g***@iest.edu.mx` | `enviado` | 1 | 1.90 |
+| 3 | 2026-11-20 11:25:00.452 | 2026-11-20 11:25:02.486 | `<7ce5e84…` | `g***@iest.edu.mx` | `enviado` | 1 | 2.03 |
 
-Para cada intento se conservan destinatario, ID del mensaje cuando lo devuelve SMTP, estado (`pendiente`, `enviado`, `entregado`, `rebotado`, `fallido` o `simulado`), fecha del intento y contador de reintentos. La hora de detección está en `alerts.created_at`; el tiempo de detección a aceptación se calcula como `sent_at - created_at`.
+Los secretos `ALERT_TO`, `APP_URL` y `SMTP_*` están configurados en Supabase; este documento no incluye valores secretos. `APP_URL` tuvo una actualización el 2026-11-23. La Edge Function `revisar-inventario` está activa en versión 15.
 
-La conexión SMTP solo confirma aceptación del mensaje por el servidor. No hay webhook de entrega implementado, así que `entregado` y `rebotado` no se asignan sin una señal verificable del proveedor. Tasa de entrega confirmada: **no disponible** hasta conectar un servicio con webhook.
+## Alcance de la evidencia
 
-## Cómo completar la evidencia real
+El estado `enviado` y el `message_id` acreditan que el servidor SMTP aceptó cada correo. No acreditan lectura ni entrega al buzón. La aplicación no tiene webhook del proveedor de correo; por eso no se informa una tasa de entrega confirmada. Los mensajes `simulado` no cuentan como correos reales.
 
-Sigue `docs/CONFIGURAR_CORREO.md`, ejecuta la prueba en un proyecto privado y copia tres filas del historial sin correos personales en una tabla con fecha, ID de mensaje redactado si es sensible, estado SMTP, reintentos y segundos desde detección. Después recalcula las métricas desde esos registros; no cuentes `simulado` como entregado.
-
-| # | Fecha | ID de mensaje | Destinatario redactado | Estado SMTP | Segundos detección→envío |
-|---:|---|---|---|---|---:|
-| 1 | Pendiente | Pendiente | Pendiente | Pendiente | Pendiente |
-| 2 | Pendiente | Pendiente | Pendiente | Pendiente | Pendiente |
-| 3 | Pendiente | Pendiente | Pendiente | Pendiente | Pendiente |
+La aplicación conserva destinatario, ID, estado, fecha del intento y contador de reintentos. El tiempo detección→aceptación se calcula como `sent_at - created_at`. La verificación de correo de orden de compra y de entrega incompleta al proveedor corresponde a flujos separados.

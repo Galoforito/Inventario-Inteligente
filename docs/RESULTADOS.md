@@ -4,13 +4,13 @@
 
 | Métrica | Resultado actual | Evidencia |
 |---|---|---|
-| Mejora de MAE del pronóstico | Pendiente de ejecución | `python scripts/evaluar_pronostico.py` genera `docs/EVALUACION_PRONOSTICO.md` y `docs/pronostico_mae.svg` |
-| Correos aceptados por SMTP | No medido | Requiere secrets SMTP y prueba privada |
-| Entrega confirmada | No disponible | No hay webhook de proveedor; SMTP no confirma bandeja |
-| Tiempo detección→envío | No medido | Se calcula de `alerts.created_at` y `sent_at` tras activar correo |
+| Evaluación sintética de pronóstico | 18 productos, 90 ventanas walk-forward; MAE baseline 1.457 u./día | `docs/EVALUACION_PRONOSTICO.md`; no representa ventas reales |
+| Correos de alerta aceptados por SMTP | 9 alertas reales con IDs distintos; 3 ejemplos redactados | `docs/EVIDENCIA_ALERTAS.md`; aceptación SMTP no confirma llegada a bandeja |
+| Entrega confirmada | No disponible | No hay webhook del proveedor de correo |
+| Tiempo detección→aceptación | Medido en tres ejemplos: 1.50, 1.90 y 2.03 s | `docs/EVIDENCIA_ALERTAS.md` |
 | Cobertura | No calculada | No hay proveedor de cobertura configurado en `package.json` |
-| Pruebas web | 162/162 aprobadas (10 archivos) | `cd web && npm test -- --run` con Node 26.13.1 / Vitest 5.0.3 |
-| Build web | Aprobado | `cd web && npm run build` con Vite 8.3.2 |
+| Pruebas web | 238/238 aprobadas tras integrar PR #11 y #12 | `npm test -- --reporter=dot` |
+| Build web | Aprobado tras integrar PR #11 y #12 | `npm run build` |
 | Volumen de demo definido por seed | 18 productos, hasta 365 días sintéticos por producto, 1 proveedor, 1 alerta y 1 orden | `web/scripts/seed-demo.js`; aún no ejecutado contra Supabase |
 
-La evaluación walk-forward de pronóstico no se ejecutó porque Python no está disponible; no se publican cifras estimadas como resultados medidos. El dataset sintético usa semilla 4172026 y se identifica como sintético. Las pruebas SQL tampoco se ejecutaron porque Docker daemon/Supabase local no están activos. El build generó `web/dist/`, que es un artefacto local ignorado por Git.
+Los resultados de pronóstico usan datos sintéticos (semilla 4172026) y no prueban mejora con ventas reales. La evaluación selecciona el modelo por producto; la tabla agregada está en `EVALUACION_PRONOSTICO.md`. No se ejecutaron las pruebas SQL locales porque Docker/Supabase local no están activos. La verificación de producción solo encontró perfiles `admin` y `almacen`; faltan cuentas `compras` y `consulta` para cerrar la aceptación de esos roles. El build genera `web/dist/`, artefacto local ignorado por Git.

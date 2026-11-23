@@ -1,6 +1,6 @@
 # Inventario de funcionalidades para la entrega final
 
-**Actualizado:** 2026-11-22  
+**Actualizado:** 2026-11-23
 **Fuentes:** estado del repositorio, historial Git, `docs/PLAN_ENTREGA_FINAL.md`, `docs/ARQUITECTURA.md`, `README.md` y la presentación `Entrega_Final_Temas_de_Vanguardia-1.pptx`.
 
 Este documento ayuda al equipo a explicar qué ofrece la aplicación, qué se heredó, qué amplió el equipo actual y qué falta. Los requisitos académicos de la presentación se separan de las funciones del producto: una instrucción para exponer o documentar no se debe convertir en una función de la app.
@@ -8,10 +8,10 @@ Este documento ayuda al equipo a explicar qué ofrece la aplicación, qué se he
 ## Estado y criterio de lectura
 
 - **Heredado:** funcionalidades observadas en el miniproyecto original Flask/SQLite y conservadas en la versión actual React/Supabase.
-- **Nuevo equipo, integrado en `main`:** cambios de ampliación que ya están en `main` del fork, con último commit de integración `a92a395`.
+- **Nuevo equipo, integrado en `main`:** cambios de ampliación fusionados en el fork. Las PR #11 y #12 también están integradas.
 - **Integrado y verificado:** catálogo persistente de categorías (rama `feat/catalogo-categorias-persistente`). La migración `0018_categorias.sql` se aplicó y verificó en Supabase remoto el 2026-11-22.
-- **Pendiente:** requisitos todavía no implementados según el plan consolidado. No se presentan como funciones disponibles en la demo.
-- **Implementado pero sin verificación de despliegue:** hay código/migraciones locales, pero hace falta validar el comportamiento contra Supabase, SMTP o el entorno de entrega.
+- **Pendiente:** información o aceptación que aún requiere intervención del equipo; los pendientes concretos están al cierre de la sección 4.
+- **Verificado en producción:** las migraciones `0026`/`0027` están aplicadas, Vercel reportó producción lista y la Edge Function `revisar-inventario` está activa en versión 15.
 
 ## 1. Funciones heredadas del miniproyecto original
 
@@ -110,21 +110,20 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 - **Estado:** integrado en la rama `chore/fase0-base`; `0018` aplicada y verificada en Supabase remoto el 2026-11-22. Si en otro entorno la tabla `categorias` aún no existe, Inventario sigue cargando y usa las categorías presentes en los productos.
 - **Corrección relacionada:** las entradas con motivo `compra`, `devolucion` o `ajuste` fallaban en producción porque `0014` no estaba aplicada y su restricción de `0007` seguía vigente. Se aplicaron `0014` y la nueva `0019_motivo_compra_movimientos.sql` (verificadas el 2026-11-22).
 
-## 4. Requisitos pendientes del plan de entrega
+## 4. Estado de cierre de los requisitos del plan
 
-**Ciclo de recepción actualizado 2026-11-23:** el flujo borrador → enviada → confirmada por Compras/admin → recepción por Almacén está implementado localmente en `feat/recepcion-orden-confirmada`, con migración `0027_confirmacion_antes_de_recepcion.sql`. Aún requiere integración, aplicación de migración y despliegue de la Edge Function. En modo demo el envío simulado cuenta como enviada, pero no como confirmada.
+**Actualizado 2026-11-23:** las PR #11 y #12 están fusionadas en `main`, Vercel producción reportó despliegue exitoso, las migraciones `0026` y `0027` están aplicadas y registradas, y `revisar-inventario` está activa en versión 15. La validación local combinada pasó 238 pruebas y build. La evidencia redactada de tres ejemplos (de nueve alertas SMTP aceptadas) está en `EVIDENCIA_ALERTAS.md`; el backtest sintético está en `EVALUACION_PRONOSTICO.md`.
 
-**Estado actualizado 2026-11-23:** la funcionalidad de proveedor único está integrada en `main`; la migración `0026_proveedor_unico_obligatorio.sql` se aplicó y registró en Supabase remoto. Persisten 101 productos sin proveedor activo y deben asignarse con información del equipo, desde Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
+Queda completar información del catálogo y pruebas con las cuentas `compras`/`consulta`: Supabase remoto solo tiene perfiles activos `admin` y `almacen`. El PDF contiene identidad fiscal de demostración; hace falta reemplazarla por datos reales antes de usarlo en una operación comercial. Persisten 101 productos sin proveedor activo; deben asignarse con información del equipo, desde Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
 
-### Proveedor asignado a cada producto
+### Proveedor asignado a cada producto — implementado; faltan 101 asignaciones del catálogo actual
 
-- Limitar cada producto a exactamente un proveedor activo.
-- Hacer obligatorio elegirlo al registrar un producto.
-- Permitir asignar/cambiar proveedor tanto desde Inventario como desde Proveedores → Asignar producto.
-- Bloquear el archivo del proveedor único mientras tenga productos asignados; primero se debe reasignar el producto.
-- Hacer visibles los productos que aún no tienen proveedor y permitir completar la asignación.
+- Cada producto nuevo requiere exactamente un proveedor activo.
+- Se puede asignar/cambiar desde Inventario y desde Proveedores → Asignar producto.
+- El proveedor con productos asignados no se puede archivar hasta reasignarlos.
+- La app muestra productos sin proveedor; 101 registros existentes requieren completar la relación con datos del equipo.
 
-### Flujo completo de órdenes
+### Flujo completo de órdenes — implementado y desplegado
 
 - Conservar el reabastecimiento como acción manual; no crear órdenes automáticamente por cada movimiento.
 - Desde el correo de alerta de stock, ofrecer un botón que cree directamente un borrador para el producto relacionado.
@@ -133,14 +132,14 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 - Aunque el envío se simule en demo, debe considerarse enviada; no permitir recepcionar hasta confirmar.
 - Impedir recepción prematura tanto en la interfaz como en la RPC/base de datos.
 
-### Alertas internas por correo real
+### Alertas internas por correo real — SMTP aceptó nueve alertas de stock; evidencia redactada registrada
 
 - Enviar el aviso de stock a personal interno.
 - Incluir la acción de crear directamente el borrador relacionado desde el aviso.
 - Configurar y demostrar correo real en el ambiente de entrega. Un resultado SMTP aceptado no debe reportarse como entrega confirmada si no existe esa evidencia.
 - Mantener el correo interno de alerta separado del correo de envío de una orden al proveedor.
 
-### Ventanas de ventas y pronóstico
+### Ventanas de ventas y pronóstico — disponibles en Dashboard; evaluación sintética documentada
 
 - Añadir selector de historial de 30/60/90 días para ventas y promedio diario.
 - Calcular promedio incluyendo todos los días calendario del periodo, también los días con cero ventas.
@@ -148,7 +147,7 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 - Añadir horizonte de pronóstico de 7/30/90 días.
 - Retirar el visual pequeño de pronóstico de la tabla de Inventario y presentar el análisis en Dashboard.
 
-### Importación de movimientos
+### Importación de movimientos — implementada, con deduplicación e historial actualizado
 
 - Crear importador Excel de movimientos con flujo de validación semejante al importador de productos.
 - Columnas propuestas: código SKU, fecha, tipo (entrada/salida), motivo y cantidad.
@@ -156,7 +155,7 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 - Al importar un archivo que mezcla filas ya cargadas y nuevas, importar solo las nuevas y mostrar el resumen de filas agregadas y omitidas.
 - Evitar que una reimportación incremente el stock dos veces.
 
-### Dashboard por categorías
+### Dashboard por categorías — implementado
 
 - Añadir pestaña Dashboard para React + Vite + Supabase.
 - Reutilizar cálculos/datos existentes de base y pronóstico; no mantener una segunda implementación del modelo.
@@ -173,13 +172,13 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 - Respetar roles: Consulta ve; Compras/admin pueden generar órdenes. Diseñar estados vacíos y presentación móvil en tarjetas.
 - Comparar números con Inventario y cubrir casos de consumo cero, categoría sin datos, stock cero y redondeo.
 
-### Orden profesional en PDF
+### Orden profesional en PDF — diseño implementado; reemplazar datos fiscales ficticios
 
 - Reemplazar/mejorar la vista imprimible actual con diseño profesional, paginación y tabla clara.
 - Incluir nombre del negocio, RFC, dirección, logo si existe, folio/fechas, proveedor, líneas SKU/producto, cantidades, costos unitarios, subtotales, total, responsable y espacios para autorización/recepción.
 - Usar datos reales de configuración. No inventar datos fiscales, moneda, impuestos ni condiciones comerciales que el negocio no haya proporcionado.
 
-### Cierre de validación y demo
+### Cierre de validación y demo — pendiente de cuentas y datos reales para `compras` y `consulta`
 
 - Verificar permisos por rol en UI, RLS y RPC, incluida consulta de órdenes para `consulta` en modo lectura.
 - Confirmar seed/cuenta demo en el entorno remoto, no solo en local.
