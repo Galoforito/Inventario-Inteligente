@@ -8,6 +8,9 @@ export function mensajeError(error) {
   if (codigo === "23505") {
     return "Ese código ya existe. Usa otro código o edita el producto existente.";
   }
+  if (codigo === "P0001" && /producto.*borrador|borrador.*producto/i.test(texto)) {
+    return "Este producto ya está en un borrador de compra abierto. Ve a Órdenes y envía ese borrador antes de volver a solicitarlo.";
+  }
   if (codigo === "invalid_credentials" || /invalid login credentials/i.test(texto)) {
     return "Correo o contraseña incorrectos.";
   }

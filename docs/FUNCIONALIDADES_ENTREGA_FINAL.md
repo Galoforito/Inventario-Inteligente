@@ -112,7 +112,7 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 
 ## 4. Estado de cierre de los requisitos del plan
 
-**Actualizado 2026-11-23:** las PR #11, #12, #14, #15 y #16 están fusionadas en `main`; Vercel reportó producción lista, las migraciones `0026`–`0028` están aplicadas y registradas, y `revisar-inventario` está activa en versión 15. La validación local combinada pasó 241 pruebas y build. La evidencia redactada de tres ejemplos (de nueve alertas SMTP aceptadas) está en `EVIDENCIA_ALERTAS.md`; el backtest sintético está en `EVALUACION_PRONOSTICO.md`.
+**Actualizado 2026-11-23:** las PR #11, #12, #14, #15 y #16 están fusionadas en `main`; Vercel reportó producción lista, las migraciones `0026`–`0028` están aplicadas y registradas, y `revisar-inventario` está activa en versión 15. La validación local combinada pasó 242 pruebas y build. La evidencia redactada de tres ejemplos (de nueve alertas SMTP aceptadas) está en `EVIDENCIA_ALERTAS.md`; el backtest sintético está en `EVALUACION_PRONOSTICO.md`.
 
 Queda completar información del catálogo y pruebas con las cuentas `compras`/`consulta`: Supabase remoto solo tiene perfiles activos `admin` y `almacen`. El PDF contiene identidad fiscal de demostración; hace falta reemplazarla por datos reales antes de usarlo en una operación comercial. Persisten 101 productos sin proveedor activo; deben asignarse con información del equipo, desde Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
 
@@ -129,7 +129,7 @@ Queda completar información del catálogo y pruebas con las cuentas `compras`/`
 - Conservar el reabastecimiento como acción manual; no crear órdenes automáticamente por cada movimiento.
 - Desde el correo de alerta de stock, ofrecer un botón que cree directamente un borrador para el producto relacionado.
 - Desde Dashboard, permitir seleccionar varios productos y crear borradores agrupados por proveedor: una orden por proveedor, con varias líneas.
-- Las acciones rápidas sucesivas del mismo proveedor reutilizan el borrador abierto. Un mismo producto no puede estar en más de un borrador abierto; debe enviarse o cancelarse el borrador anterior antes de volver a solicitarlo.
+- Las acciones rápidas sucesivas del mismo proveedor reutilizan el borrador abierto. Un mismo producto no puede estar en más de un borrador abierto; debe enviarse antes de volver a solicitarlo.
 - Exigir el orden del ciclo: borrador → enviado → confirmado manualmente por Compras/admin → recepción.
 - Aunque el envío se simule en demo, debe considerarse enviada; no permitir recepcionar hasta confirmar.
 - Impedir recepción prematura tanto en la interfaz como en la RPC/base de datos.
