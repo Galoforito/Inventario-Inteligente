@@ -4,8 +4,9 @@ import { resolverCategoria } from "../lib/categorias.js";
 const CREAR_CATEGORIA = "__crear_categoria__";
 
 // Formulario para dar de alta un producto con categoría existente o nueva.
-export default function FormularioProducto({ categorias, ocupado, onGuardar }) {
+export default function FormularioProducto({ categorias, proveedores = [], ocupado, onGuardar }) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
+  const [proveedorSeleccionado, setProveedorSeleccionado] = useState("");
 
   async function enviar(evento) {
     evento.preventDefault();
@@ -15,6 +16,7 @@ export default function FormularioProducto({ categorias, ocupado, onGuardar }) {
     if (await onGuardar(datos)) {
       formulario.reset();
       setCategoriaSeleccionada("");
+      setProveedorSeleccionado("");
     }
   }
 
@@ -24,6 +26,14 @@ export default function FormularioProducto({ categorias, ocupado, onGuardar }) {
       <form className="form-grid" onSubmit={enviar}>
         <p className="field-note">El código se asignará automáticamente al guardar y no se puede modificar.</p>
         <label>Nombre<input name="nombre" maxLength={120} required /></label>
+        <label>Proveedor activo
+          <select name="proveedor_id" value={proveedorSeleccionado} required
+            onChange={(e) => setProveedorSeleccionado(e.target.value)}>
+            <option value="">Selecciona un proveedor</option>
+            {proveedores.map((proveedor) => <option key={proveedor.id} value={proveedor.id}>{proveedor.nombre}</option>)}
+          </select>
+        </label>
+        {proveedores.length === 0 && <p className="field-note">Primero un usuario de Compras o Admin debe registrar un proveedor activo.</p>}
         <label>Categoría
           <select aria-label="Categoría" value={categoriaSeleccionada} required
             onChange={(e) => setCategoriaSeleccionada(e.target.value)}>
@@ -38,7 +48,7 @@ export default function FormularioProducto({ categorias, ocupado, onGuardar }) {
         <label>Costo unitario ($)<input type="number" name="costo" min="0" step="0.01" placeholder="0.00" required /></label>
         <label>Stock actual<input type="number" name="stock_actual" min="0" step="1" required /></label>
         <label>Stock mínimo<input type="number" name="stock_minimo" min="0" step="1" required /></label>
-        <button className="primary" disabled={ocupado}>Guardar producto</button>
+        <button className="primary" disabled={ocupado || proveedores.length === 0}>Guardar producto</button>
       </form>
     </section>
   );

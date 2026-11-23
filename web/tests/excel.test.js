@@ -19,7 +19,7 @@ describe("leerExcel", () => {
     expect(productos).toHaveLength(16);
     expect(productos.filter((p) => p.stock_actual < p.stock_minimo)).toHaveLength(6);
     expect(productos[0]).toEqual({
-      codigo: "P001", nombre: "Cuaderno profesional", categoria: "Papelería", stock_actual: 24, stock_minimo: 8, costo: 45,
+      codigo: "P001", nombre: "Cuaderno profesional", categoria: "Papelería", stock_actual: 24, stock_minimo: 8, costo: 45, proveedor: null,
     });
   });
 
@@ -40,7 +40,7 @@ describe("leerExcel", () => {
         { formula: "10*1.5", result: 15 },
       ],
     ]));
-    expect(productos).toEqual([{ codigo: "P9", nombre: "Con enlace", categoria: "Otra", stock_actual: 5, stock_minimo: 7, costo: 15 }]);
+    expect(productos).toEqual([{ codigo: "P9", nombre: "Con enlace", categoria: "Otra", stock_actual: 5, stock_minimo: 7, costo: 15, proveedor: null }]);
   });
 
   it("reporta el número de fila tal como se ve en Excel, aunque haya filas en blanco", async () => {
@@ -60,14 +60,14 @@ describe("leerExcel", () => {
 
 describe("crearExcel", () => {
   const productos = [
-    { id: 1, codigo: "C1", nombre: "Tóner", categoria: "Oficina", stock_actual: 1, stock_minimo: 4, costo: 1250.5, low_active: true },
+    { id: 1, codigo: "C1", nombre: "Tóner", categoria: "Oficina", stock_actual: 1, stock_minimo: 4, costo: 1250.5, proveedor: "Papelera", low_active: true },
     { id: 2, codigo: "C2", nombre: "Hojas", categoria: "Oficina", stock_actual: 10, stock_minimo: 2, costo: 99.99, low_active: false },
   ];
 
   it("lo exportado se puede volver a importar sin perder nada", async () => {
     const leidos = await leerExcel(await crearExcel(productos));
-    expect(leidos).toEqual(productos.map(({ codigo, nombre, categoria, stock_actual, stock_minimo, costo }) =>
-      ({ codigo, nombre, categoria, stock_actual, stock_minimo, costo })));
+    expect(leidos).toEqual(productos.map(({ codigo, nombre, categoria, stock_actual, stock_minimo, costo, proveedor }) =>
+      ({ codigo, nombre, categoria, stock_actual, stock_minimo, costo, proveedor: proveedor ?? null })));
   });
 
   it("conserva el formato del Excel original", async () => {

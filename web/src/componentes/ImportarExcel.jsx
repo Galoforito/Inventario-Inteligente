@@ -11,10 +11,10 @@ export default function ImportarExcel({ ocupado, onImportar }) {
     <section className="card">
       <h3>Importar desde Excel</h3>
       <p>
-        Columnas: <code>codigo, nombre, categoria, stock_actual, stock_minimo, costo</code>. Categoría y costo son opcionales;
+        Columnas: <code>codigo, nombre, categoria, stock_actual, stock_minimo, costo, proveedor</code>. Categoría, costo y proveedor son opcionales en archivos antiguos;
         si falta categoría se usa <strong>Sin categoría</strong>. Se revisa todo el archivo
         antes de guardar. El código identifica productos existentes para actualizarlos; las filas nuevas reciben
-        automáticamente un código. Si no trae <code>costo</code>, los productos existentes conservan el suyo.
+        automáticamente un código y requieren el nombre exacto de un proveedor activo. Si no trae <code>costo</code>, los productos existentes conservan el suyo.
       </p>
       <form className="stack" onSubmit={enviar}>
         <label>Archivo .xlsx<input type="file" name="archivo" accept=".xlsx" required /></label>

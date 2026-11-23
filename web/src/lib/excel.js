@@ -121,14 +121,14 @@ export async function crearExcel(productos) {
 
   hoja.addRow(ENCABEZADOS);
   for (const producto of productos) {
-    hoja.addRow(ENCABEZADOS.map((campo) => (campo === "costo" ? Number(producto.costo) : producto[campo])));
+    hoja.addRow(ENCABEZADOS.map((campo) => (campo === "costo" ? Number(producto.costo) : campo === "proveedor" ? producto.proveedor ?? "" : producto[campo])));
   }
 
   hoja.getRow(1).eachCell((celda) => {
     celda.font = { bold: true, color: { argb: "FFFFFFFF" } };
     celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F1B33" } };
   });
-  [13, 28, 18, 14, 14, 12].forEach((ancho, i) => { hoja.getColumn(i + 1).width = ancho; });
+  [13, 28, 18, 14, 14, 12, 26].forEach((ancho, i) => { hoja.getColumn(i + 1).width = ancho; });
   for (let fila = 2; fila <= hoja.rowCount; fila++) {
     hoja.getCell(fila, 6).numFmt = "$#,##0.00";
   }
