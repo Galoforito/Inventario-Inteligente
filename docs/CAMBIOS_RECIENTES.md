@@ -1,5 +1,13 @@
 # Cambios recientes
 
+## Confirmación del proveedor antes de recibir una orden — 2026-11-23
+
+- En la rama `feat/recepcion-orden-confirmada`, el ciclo queda como borrador → enviada → confirmada por Compras/admin → recepción por Almacén.
+- La interfaz oculta la recepción hasta que la orden esté confirmada, permite confirmar la aceptación del proveedor y explica la espera en órdenes enviadas.
+- La migración `0027_confirmacion_antes_de_recepcion.sql` agrega auditoría de confirmación, revoca actualizaciones directas de órdenes desde el cliente y valida el estado en la RPC antes de aumentar stock.
+- El envío simulado también deja la orden en `enviada`; sigue requiriendo confirmación manual antes de recibir.
+- Pruebas y build locales aprobados. Migración y Edge Function aún requieren integración y despliegue; no se han ejecutado en producción.
+
 ## Órdenes de compra para Consulta
 
 - El rol `consulta` ahora puede abrir el apartado Órdenes, ver el listado y detalle, y exportar la orden a PDF.

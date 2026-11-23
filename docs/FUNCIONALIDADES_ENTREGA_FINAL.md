@@ -112,6 +112,8 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 
 ## 4. Requisitos pendientes del plan de entrega
 
+**Ciclo de recepción actualizado 2026-11-23:** el flujo borrador → enviada → confirmada por Compras/admin → recepción por Almacén está implementado localmente en `feat/recepcion-orden-confirmada`, con migración `0027_confirmacion_antes_de_recepcion.sql`. Aún requiere integración, aplicación de migración y despliegue de la Edge Function. En modo demo el envío simulado cuenta como enviada, pero no como confirmada.
+
 ### Proveedor asignado a cada producto
 
 - Limitar cada producto a exactamente un proveedor activo.

@@ -153,7 +153,12 @@ async function enviarOrdenProveedor(req: Request): Promise<Response> {
   const id = Number(preparada.alert_id);
   const { data: alerta, error: errorAlerta } = await base.from("alerts").select("*").eq("id", id).single();
   if (errorAlerta) return json({ error: errorAlerta.message }, 500);
-  if (alerta.status === "enviado" || alerta.status === "simulado") return json({ alert_id: id, status: alerta.status, message_id: alerta.message_id });
+  if (alerta.status === "enviado" || alerta.status === "simulado") {
+    const enviadoAt = alerta.sent_at ?? new Date().toISOString();
+    const { error: errorOrden } = await base.from("ordenes_compra").update({ estado: "enviada", sent_at: enviadoAt }).eq("id", ordenId);
+    if (errorOrden) return json({ alert_id: id, status: alerta.status, error: errorOrden.message }, 500);
+    return json({ alert_id: id, status: alerta.status, message_id: alerta.message_id });
+  }
   const { data: reclamada, error: errorClaim } = await base.rpc("reclamar_alerta", { p_id: id });
   if (errorClaim) return json({ error: errorClaim.message }, 500);
   if (!reclamada?.length) return json({ alert_id: id, status: alerta.status });
@@ -163,7 +168,11 @@ async function enviarOrdenProveedor(req: Request): Promise<Response> {
   try {
     const config = configCorreo(Deno.env.toObject());
     if (config.modo === "demo") {
-      await base.from("alerts").update({ status: "simulado", delivery_status: "simulado", recipient, error: null }).eq("id", id);
+      const enviadoAt = new Date().toISOString();
+      const { error: errorSimulado } = await base.from("alerts").update({ status: "simulado", delivery_status: "simulado", recipient, sent_at: enviadoAt, error: null }).eq("id", id);
+      if (errorSimulado) return json({ alert_id: id, status: "error", error: errorSimulado.message }, 500);
+      const { error: errorOrden } = await base.from("ordenes_compra").update({ estado: "enviada", sent_at: enviadoAt }).eq("id", ordenId);
+      if (errorOrden) return json({ alert_id: id, status: "simulado", error: errorOrden.message }, 500);
       return json({ alert_id: id, status: "simulado", recipient });
     }
     const appUrl = Deno.env.get("APP_URL")?.trim();

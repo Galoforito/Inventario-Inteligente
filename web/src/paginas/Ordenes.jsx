@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Pagina from "../componentes/Pagina.jsx";
-import { enviarOrdenProveedor, listarOrdenes, recibirLineaOrden, reportarEntregaIncompleta } from "../lib/api.js";
+import { confirmarOrdenCompra, enviarOrdenProveedor, listarOrdenes, recibirLineaOrden, reportarEntregaIncompleta } from "../lib/api.js";
 import { fechaLocal } from "../lib/fechas.js";
 import { dinero } from "../lib/dinero.js";
 import { usePerfil } from "../lib/perfil.jsx";
@@ -114,6 +114,16 @@ export default function Ordenes() {
     try { const r = await enviarOrdenProveedor(id); await cargar(); setAviso({ tipo: r.status === "error" ? "error" : "info", texto: r.status === "simulado" ? "Envío simulado: no se contactó al proveedor. DEMO_MODE está activo." : `Orden ${r.status}; destinatario ${r.recipient ?? "registrado"}; ID ${r.message_id ?? "sin ID"}.` }); }
     catch (e) { setAviso({ tipo: "error", texto: e.message }); }
   }
+  async function confirmar(orden) {
+    if (!window.confirm(`Confirma solo si ${orden.proveedores?.nombre ?? "el proveedor"} aceptó surtir la orden ${orden.folio}.`)) return;
+    try {
+      await confirmarOrdenCompra(orden.id);
+      await cargar();
+      setAviso({ tipo: "success", texto: `La orden ${orden.folio} quedó confirmada. Almacén ya puede registrar la recepción.` });
+    } catch (e) {
+      setAviso({ tipo: "error", texto: e.message });
+    }
+  }
   // Avisa al proveedor qué faltó y le pide un curso de acción. Se hace a mano al terminar de recibir.
   async function reportarFaltante(orden, nota) {
     setEnviandoReporte(true);
@@ -159,8 +169,21 @@ export default function Ordenes() {
       </select></label>
     </section>}
     {ordenes.length > 0 && ordenesVisibles.length === 0 && <section className="card"><p>No hay órdenes que coincidan con esos filtros.</p></section>}
-    <div className="alert-list">{ordenesVisibles.map((o) => <article className="card" key={o.id}><div className="alert-top"><h3>{o.folio} · {o.proveedores?.nombre}</h3><span className="badge">{o.estado}</span></div><p>Creada: {fechaLocal(o.created_at)}</p><p className="order-total"><strong>Monto final: {dinero(totalOrden(o))}</strong></p><div className="title-actions"><button type="button" onClick={() => imprimir(o)}>Exportar a PDF</button>{(perfil.role === "admin" || perfil.role === "compras") && o.estado === "borrador" && <button type="button" onClick={() => enviar(o.id)}>Enviar al proveedor</button>}{(perfil.role === "admin" || perfil.role === "compras") && o.estado === "recibida parcial" && !o.incompleta_alert_id && <button type="button" className="danger" onClick={() => setReportando(o)}>Reportar entrega incompleta</button>}{o.incompleta_alert_id && <span className="badge warn">Faltante reportado al proveedor</span>}</div><ul>{o.orden_lineas?.map((l) => <li key={l.id}>{l.product_code ?? l.products?.codigo} · {l.product_name ?? l.products?.nombre}: {l.recibida}/{l.cantidad} unidades
-      {(perfil.role === "admin" || perfil.role === "almacen") && !["recibida", "cancelada"].includes(o.estado) && <button type="button" onClick={() => recibir(l)}>Registrar recepción</button>}</li>)}</ul></article>)}</div>
+    <div className="alert-list">{ordenesVisibles.map((o) => <article className="card" key={o.id}>
+      <div className="alert-top"><h3>{o.folio} · {o.proveedores?.nombre}</h3><span className="badge">{o.estado}</span></div>
+      <p>Creada: {fechaLocal(o.created_at)}</p>
+      <p className="order-total"><strong>Monto final: {dinero(totalOrden(o))}</strong></p>
+      <div className="title-actions">
+        <button type="button" onClick={() => imprimir(o)}>Exportar a PDF</button>
+        {(perfil.role === "admin" || perfil.role === "compras") && o.estado === "borrador" && <button type="button" onClick={() => enviar(o.id)}>Enviar al proveedor</button>}
+        {(perfil.role === "admin" || perfil.role === "compras") && o.estado === "enviada" && <button type="button" onClick={() => confirmar(o)}>Confirmar pedido del proveedor</button>}
+        {(perfil.role === "admin" || perfil.role === "compras") && o.estado === "recibida parcial" && !o.incompleta_alert_id && <button type="button" className="danger" onClick={() => setReportando(o)}>Reportar entrega incompleta</button>}
+        {o.incompleta_alert_id && <span className="badge warn">Faltante reportado al proveedor</span>}
+      </div>
+      {o.estado === "enviada" && <p className="muted">La recepción se habilita cuando Compras confirma que el proveedor aceptó la orden.</p>}
+      <ul>{o.orden_lineas?.map((l) => <li key={l.id}>{l.product_code ?? l.products?.codigo} · {l.product_name ?? l.products?.nombre}: {l.recibida}/{l.cantidad} unidades
+        {(perfil.role === "admin" || perfil.role === "almacen") && ["confirmada", "recibida parcial"].includes(o.estado) && <button type="button" onClick={() => recibir(l)}>Registrar recepción</button>}</li>)}</ul>
+    </article>)}</div>
     {reportando && <ReporteFaltante orden={reportando} ocupado={enviandoReporte} onEnviar={reportarFaltante} onCerrar={cerrarReporte} />}
   </Pagina>;
 }
