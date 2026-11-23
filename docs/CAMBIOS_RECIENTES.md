@@ -1,5 +1,13 @@
 # Cambios recientes
 
+## Integración de funcionalidades de entrega final — 2026-11-23
+
+- Las PR #2, #3, #4, #6 y #5 quedaron fusionadas en `main`, en ese orden de dependencias; la PR #6 se integró antes de #5 por la secuencia de migraciones.
+- Se revisó y resolvió el conflicto documental de `PLAN_ENTREGA_FINAL.md`; no hubo conflicto pendiente de código.
+- Verificación local sobre el código integrado: **227 pruebas aprobadas** y `npm run build` correcto. GitHub no reportó checks automatizados.
+- Las migraciones `0021`–`0024` ya estaban aplicadas y verificadas en Supabase; durante esta integración no se ejecutaron migraciones.
+- Las tareas funcionales restantes y sus criterios están listados en `PLAN_ENTREGA_FINAL.md` y `Implementaciones_2.md`. La evidencia de tres correos SMTP de alertas de stock sigue pendiente en `EVIDENCIA_ALERTAS.md`.
+
 ## Historial de alertas y codificación
 
 - La reposición hasta el mínimo se calcula como faltante por costo unitario del catálogo. El costo sugerido por pronóstico queda separado.

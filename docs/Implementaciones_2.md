@@ -1,7 +1,7 @@
 # Implementaciones 2 · Entrega final
 
-**Periodo:** 22 y 23 de noviembre de 2026
-**Base:** `main` del fork `Galoforito/Inventario-Inteligente` (commit `b9776a7`)
+**Actualizado:** 23 de noviembre de 2026
+**Base:** `main` del fork `Galoforito/Inventario-Inteligente` (PR #2–#6 integradas; documentación revisada el 2026-11-23)
 **Alcance:** tareas 1 a 5 asignadas (categorías, historial y pronóstico, Dashboard, importación de movimientos, PDF de órdenes), el aviso de entrega incompleta pedido después, ajustes de interfaz y los fallos encontrados en el camino.
 
 Este documento resume qué se cambió, dónde está, qué se aplicó en Supabase y qué queda pendiente. El detalle de requisitos sigue en [`PLAN_ENTREGA_FINAL.md`](PLAN_ENTREGA_FINAL.md).
@@ -10,16 +10,17 @@ Este documento resume qué se cambió, dónde está, qué se aplicó en Supabase
 
 ## 1. Ramas y pull requests
 
-Las ramas van encadenadas: cada una parte de la anterior. Se integran **en este orden**.
+El trabajo de estas ramas ya está integrado en `main`; no hay que repetir sus merges. El orden aplicado fue:
 
-| Orden | Rama | Contenido | Pull request |
-|---:|---|---|---|
-| 1 | `chore/fase0-base` | Categorías persistentes (0018), corrección del motivo "compra" (0019), pruebas al día | hacia `main` |
-| 2 | `feat/historial-pronostico` | Pronóstico solo con ventas, pestaña Dashboard, tabla compacta | hacia `chore/fase0-base` |
-| 3 | `feat/importar-movimientos` | Importador de movimientos desde Excel (0021) | hacia `feat/historial-pronostico` |
-| 4 | `feat/pdf-ordenes` | PDF profesional, aviso de entrega incompleta (0024), ventana emergente de la app, ajustes de Usuarios y encabezado | hacia `feat/importar-movimientos` |
+| Orden | PR | Contenido | Estado |
+|---:|---:|---|---|
+| 1 | #2 | Base: catálogo persistente de categorías y ajustes | Fusionada |
+| 2 | #3 | Historial/pronóstico basado en ventas y Dashboard | Fusionada |
+| 3 | #4 | Importación de movimientos desde Excel | Fusionada |
+| 4 | #6 | ID estable para deduplicar importaciones | Creada e integrada antes de #5 por dependencia de migración |
+| 5 | #5 | PDF profesional y aviso de entrega incompleta | Fusionada al final; conflicto documental resuelto |
 
-> Los pull requests se abren en **`Galoforito/Inventario-Inteligente`**. GitHub propone por defecto el repositorio original (`CarlosGlez/...`); hay que cambiar *base repository* antes de crearlos.
+Las PR #2–#6 están cerradas como fusionadas en `Galoforito/Inventario-Inteligente`. Las pruebas automáticas y el build se ejecutaron localmente; GitHub no mostró checks automatizados para esas PR.
 
 ---
 
@@ -33,7 +34,7 @@ Las migraciones activas están verificadas en el Supabase remoto. El historial r
 | `0014` | Motivos de entrada y salida por tipo | Aplicada 2026-11-22 (no lo estaba) |
 | `0018_categorias.sql` | Catálogo persistente de categorías + trigger | Aplicada y verificada 2026-11-22 |
 | `0019_motivo_compra_movimientos.sql` | Quita la restricción de `0007` que rechazaba el motivo `compra` | Aplicada y verificada 2026-11-22 |
-| `0020` | **Reservada para el compañero** (proveedor único / ciclo de orden) | — |
+| `0020` | **Reservada; no hay migración de esta versión en `main`** (proveedor único / ciclo de orden siguen pendientes) | — |
 | `0021_importar_movimientos.sql` | `movements.import_key`, función `importar_movimientos`, alertas solo con ventas | Aplicada y verificada 2026-11-23 |
 | `0022_alerta_ventas_diarias.sql` | Corrige el promedio ponderado de las alertas cuando hay varias ventas el mismo día | Aplicada, verificada y registrada 2026-11-23 |
 | `0023_id_movimiento_importado.sql` | ID opcional estable para deduplicar importaciones por SKU + ID | Aplicada, verificada y registrada 2026-11-23 |
@@ -142,7 +143,7 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 
 ## 7. Pruebas
 
-- **225 pruebas automáticas en verde** (empezamos en 164/166) y build correcto.
+- **227 pruebas automáticas en verde** en el estado integrado, y `npm run build` correcto (Vite 8.3.2; revisión local del 2026-11-23). GitHub no reportó checks automatizados.
 - Pruebas nuevas: cálculos del Dashboard (consumo cero, categoría vacía, stock cero, redondeo, regla del 25 %), pronóstico (30/60/90, 7/30/90, días sin ventas), importación (fechas, motivos, encabezados, errores por fila, plantilla), PDF (total, escape de texto, paginación), correo de entrega incompleta, permisos por rol en botones, Usuarios.
 - **En Windows**, ejecutar las pruebas desde una ruta con la unidad en mayúscula:
   ```powershell
@@ -153,19 +154,16 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 
 ---
 
-## 8. Pendiente
+## 8. Pendiente después de integrar PR #2–#6
 
-**Del compañero (según el plan):**
-- Proveedor único por producto, obligatorio en el alta (usar migración `0020`).
-- Ciclo de orden borrador → enviada → **confirmada** → recepción, bloqueado también en la base.
-- Botón "Crear orden" en el correo de alerta de stock. El compañero ya habilitó "Armar orden" del Dashboard para todos los productos en atención; falta que `crear_orden_rapida` acepte productos con stock > 0 (hoy los rechaza: "El producto ya no está agotado").
-- Rol Consulta con acceso de solo lectura a Órdenes.
+Estas tareas no forman parte de los merges ya hechos:
 
-**Del equipo:**
-- Integrar los cuatro pull requests en orden.
-- Evidencia de correo real: tres envíos con `scripts/probar_correo.ps1` en `EVIDENCIA_ALERTAS.md`.
-- Volver a correr la evaluación del pronóstico (`python scripts/evaluar_pronostico.py`) porque cambió la regla del promedio.
-- Cargar datos de demo en el Supabase remoto.
-- Documentación académica, presentación y demo en vivo.
-- Opcional: llevar a la ventana de la app las confirmaciones que aún usan el cuadro del navegador (Registrar recepción, Eliminar producto, Borrar todos los productos).
-- Volver a `DEMO_MODE=true` después de la demo.
+1. **Proveedor único por producto:** hacer obligatoria la asignación de un proveedor activo al crear producto y permitir asignarlo/editarlo desde Inventario y Proveedores. `0020` sigue reservada y no existe como migración en `main`; acordar el número disponible antes de crear una migración, sin asumir que debe ejecutarse `0020`.
+2. **Ciclo de compra:** bloquear recepción hasta que la orden esté confirmada, tanto en la interfaz como en la función/RPC de base de datos. El envío simulado en demo cuenta como enviado, pero requiere confirmación manual.
+3. **Reabastecimiento desde alertas:** añadir al correo de stock el botón para iniciar un borrador. El botón del Dashboard ya está disponible para productos en atención con proveedor, pero la RPC de orden rápida todavía rechaza productos con stock mayor que cero.
+4. **Correo de alerta de stock:** configurar y validar envío SMTP real al personal interno; registrar tres envíos en `EVIDENCIA_ALERTAS.md`. La verificación real del correo de entrega incompleta es independiente y no sustituye esta evidencia.
+5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC. Asegurar que `consulta` pueda ver el listado y detalle de órdenes sin capacidad de mutación.
+6. **Aceptación funcional:** revisar Dashboard con datos reales y comparar sus cifras con Inventario; volver a ejecutar `python scripts/evaluar_pronostico.py` tras el cambio de ventana/promedio; verificar la cuenta y los datos demo en Supabase remoto.
+7. **Entrega académica:** terminar documentación académica, presentación y demo en vivo.
+8. **Opcional:** trasladar a la ventana modal propia las confirmaciones de Registrar recepción, Eliminar producto y Borrar todos los productos.
+9. **Después de la demo:** devolver `DEMO_MODE=true` si el entorno debe quedar sin envíos reales.

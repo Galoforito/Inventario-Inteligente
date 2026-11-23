@@ -1,8 +1,8 @@
 # Evidencia de alertas
 
-## Estado verificable en este checkout
+## Estado de evidencia para alertas de inventario
 
-No hay credenciales SMTP ni acceso a un proyecto Supabase configurado en el entorno. Por ello no se han enviado tres correos reales y no se inventan IDs, estados de entrega ni tiempos. El modo por defecto sin SMTP queda registrado como `simulado` y la aplicación lo muestra explícitamente.
+En este checkout no hay credenciales SMTP ni acceso a un proyecto Supabase configurado. Por ello, la evidencia de **tres correos reales de alerta de stock al personal interno** sigue pendiente; no se inventan IDs, estados de entrega ni tiempos. El modo por defecto sin SMTP queda registrado como `simulado` y la aplicación lo muestra explícitamente. La verificación de un correo real de entrega incompleta al proveedor está documentada en `Implementaciones_2.md` y es un flujo distinto.
 
 ## Evidencia que registra la aplicación
 

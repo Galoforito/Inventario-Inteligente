@@ -1,6 +1,6 @@
 # Plan de trabajo para la entrega final
 
-**Actualizado:** 2026-11-22
+**Actualizado:** 2026-11-23
 **Rama base del equipo:** `main` de `Galoforito/Inventario-Inteligente`  
 **Propósito:** fuente de verdad para que integrantes e IAs continúen el trabajo en colaboración sin repetir funciones ya hechas ni mezclar cambios del repositorio original de Carlosglez.
 
@@ -22,13 +22,13 @@ Lee este documento junto con `README.md` y `docs/ARQUITECTURA.md` antes de modif
 | Compra mínima del proveedor | **Cubierto** | No forma parte del flujo actual. La aplicación ignora el campo heredado y no debe volver a presentarlo como requisito. |
 | Órdenes por proveedor | **Cubierto** | Cada orden pertenece a un solo proveedor; sus líneas pueden incluir varios productos de ese proveedor. Al armar órdenes desde alertas, agrupar por proveedor. Nunca mezclar proveedores en una orden. |
 | SKU incremental e inmutable | **Cubierto** | El SKU lo genera la base y el formulario no permite editarlo. Migración `0015_codigos_producto_automaticos.sql` confirmada aplicada por el usuario. |
-| Categorías en productos y Excel | **Cubierto; `0018` aplicada y verificada en remoto el 2026-11-22** | Se conserva `products.categoria`, el catálogo independiente se siembra con los valores existentes y el trigger lo mantiene al crear/editar/importar productos. La tabla Inventario carga categorías del catálogo y conserva compatibilidad con Excel sin columna de categoría, que usa `Sin categoría`. La exportación y el Excel de ejemplo incluyen la columna. Aplicar/verificar `0018_categorias.sql` en el proyecto remoto antes de marcar cubierto. |
+| Categorías en productos y Excel | **Cubierto; `0018` aplicada y verificada en remoto el 2026-11-22** | Se conserva `products.categoria`, el catálogo independiente se siembra con los valores existentes y el trigger lo mantiene al crear/editar/importar productos. La tabla Inventario carga categorías del catálogo y conserva compatibilidad con Excel sin columna de categoría, que usa `Sin categoría`. La exportación y el Excel de ejemplo incluyen la columna. |
 | Alta y movimientos | **Cubierto para el alcance especificado** | Ya hay entradas/salidas, motivos ajustados al tipo de movimiento, validaciones y SKU no editable. La solicitud general de “perfeccionar alta y salidas” se retira como tarea independiente; no se inventan cambios adicionales. |
 | Proveedor por producto | **Pendiente** | Cada producto tendrá exactamente un proveedor activo y será obligatorio asignarlo al registrar el producto. Se podrá asignar desde el formulario/sección de Inventario y desde Proveedores, en la opción “Asignar producto”. Bloquear el archivo del proveedor único hasta reasignar el producto. |
-| Reabastecimiento desde alertas | **Parcial** | El flujo manual actual es el correcto: no crear órdenes automáticamente por movimientos. Compras/admin puede armar órdenes desde productos/alertas y deben agruparse por proveedor. El botón del aviso de stock crea directamente un borrador para ese producto; conservar las órdenes separadas por proveedor. |
+| Reabastecimiento desde alertas | **Parcial** | El flujo es manual; no crear órdenes automáticamente por movimientos. Compras/admin puede armar órdenes desde el Dashboard y deben agruparse por proveedor. Falta un botón de acción en el correo de stock para iniciar el borrador; además, la RPC de orden rápida aún rechaza productos con stock mayor que cero. |
 | Envío y recepción de órdenes | **Pendiente; restricción funcional** | Solo permitir registrar recepción después de que la orden esté confirmada. Una orden cuyo envío se simula en demo cuenta como enviada, pero aún requiere confirmación manual de Compras/admin antes de recibir. Aplicar la regla tanto en interfaz como en RPC/base de datos. |
 | Correo de alertas | **Pendiente** | El aviso de stock se envía a personal interno y debe incluir una acción/botón para iniciar el flujo de orden del producto. Se requiere correo real; la simulación no cumple la aceptación final. Mantener distinto el correo de alerta del correo de envío de la orden. |
-| Historial y pronóstico | **Implementado (rama `feat/historial-pronostico`); pendiente: correo de alerta en BD aún puede usar `consumo_30d` sin ventas** | Añadir selector de historial 30/60/90 días para unidades vendidas y promedio diario. El promedio divide entre todos los días calendario del periodo, incluidos los días sin ventas. El pronóstico se basa solo en ventas. Añadir horizonte de pronóstico 7/30/90 días en Dashboard. |
+| Historial y pronóstico | **Implementado** | El historial ofrece 30/60/90 días; el promedio cuenta todos los días calendario, incluidos los de cero ventas. El pronóstico usa solo ventas y el Dashboard ofrece horizonte de 7/30/90 días. Alertas y Dashboard reutilizan la lógica acordada de ventas. |
 | Visual actual de pronóstico en Inventario | **Hecho: columna Pronóstico retirada de Inventario; gráfica en Dashboard** | Eliminar el visual compacto actual de pronóstico en la tabla de Inventario. La presentación estadística y la gráfica de pronóstico vivirán en Dashboard, según el diseño especificado abajo. |
 | Importación de movimientos | **Implementado (ramas `feat/importar-movimientos` y `feat/id-movimiento-importado`); migraciones `0021`–`0023` aplicadas y verificadas en remoto el 2026-11-23** | Excel acepta `id_movimiento` opcional. Con ID deduplica por SKU + ID; sin ID conserva la compatibilidad con la deduplicación anterior. La plantilla incluye IDs de ejemplo. La importación recalcula stock y solo carga filas nuevas. La ponderación de ventas por día se corrigió en `0022_alerta_ventas_diarias.sql`. |
 | Dashboard de inventario | **Implementado (rama `feat/historial-pronostico`); pendiente revisión visual con datos reales. Botón de orden disponible en todos los productos que requieren atención y tienen proveedor** | Añadir una pestaña Dashboard en React + Vite + Supabase. Reutilizar pronósticos y datos de la base, sin duplicar lógica. Seguir fórmulas, reglas y orden de contenido de la sección siguiente. |
@@ -38,7 +38,7 @@ Lee este documento junto con `README.md` y `docs/ARQUITECTURA.md` antes de modif
 
 ## Prerrequisito y esquema de categorías
 
-La instrucción original pide `0011_categorias.sql` y una columna `category text not null default 'Sin categoría'`. El repositorio contradice esa premisa: `products.categoria` ya existe y `0011` ya está ocupada por `0011_costos_alertas_utf8.sql`; la secuencia llega hasta `0017`. No crear una columna duplicada en inglés ni reutilizar el número de migración.
+La instrucción original pide `0011_categorias.sql` y una columna `category text not null default 'Sin categoría'`. El repositorio contradice esa premisa: `products.categoria` ya existe, `0011` ya está ocupada por `0011_costos_alertas_utf8.sql` y las migraciones del proyecto llegan hasta `0024`. No crear una columna duplicada en inglés ni reutilizar números ya ocupados o reservados.
 
 Propuesta compatible con el esquema actual: conservar `products.categoria` como la categoría asignada al producto, crear una tabla de catálogo persistente en una migración nueva `0018_categorias.sql`, sembrarla con las categorías existentes e incluir `Sin categoría`. El catálogo debe conservar categorías aunque temporalmente ningún producto las use. Mantener compatibilidad con hojas Excel antiguas; categoría será opcional al importar.
 
@@ -127,8 +127,7 @@ La cuenta/datos demo deben verificarse con el seed existente y documentarse para
 - `0011` permanece sin registrar en `supabase_migrations.schema_migrations` porque el archivo completo no se ejecutó. No usar `supabase db push` hasta reconciliar esa migración parcial sin volver a ejecutar el archivo completo.
 - `0014`, `0018` y `0019` se confirmaron aplicadas manualmente el 2026-11-22; las consultas del 2026-11-23 volvieron a verificar sus restricciones, catálogo y políticas.
 - `0021`–`0024` están aplicadas y registradas en remoto. `0020` sigue reservada y no hay archivo local con ese número. La migración `0024_entrega_incompleta.sql` se verificó en producción y no debe volver a ejecutarse.
-- No hay en este plan evidencia de ejecución de pruebas SQL remotas ni de correo real. Registrar resultados nuevos al completar cada etapa.
-- No hay en este plan evidencia de ejecución de pruebas SQL remotas ni de correo real. Registrar resultados nuevos al completar cada etapa.
+- La Edge Function `revisar-inventario` envió un correo real de aviso de entrega incompleta según la verificación documentada en `Implementaciones_2.md`. Esto no sustituye la evidencia de tres correos reales de alerta de stock; véase `EVIDENCIA_ALERTAS.md`.
 
 ## Aviso de entrega incompleta (añadido 2026-11-23)
 
