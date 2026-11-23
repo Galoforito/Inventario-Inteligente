@@ -17,7 +17,7 @@ Las ramas van encadenadas: cada una parte de la anterior. Se integran **en este 
 | 1 | `chore/fase0-base` | Categorías persistentes (0018), corrección del motivo "compra" (0019), pruebas al día | hacia `main` |
 | 2 | `feat/historial-pronostico` | Pronóstico solo con ventas, pestaña Dashboard, tabla compacta | hacia `chore/fase0-base` |
 | 3 | `feat/importar-movimientos` | Importador de movimientos desde Excel (0021) | hacia `feat/historial-pronostico` |
-| 4 | `feat/pdf-ordenes` | PDF profesional, aviso de entrega incompleta (0022), ventana emergente de la app, ajustes de Usuarios y encabezado | hacia `feat/importar-movimientos` |
+| 4 | `feat/pdf-ordenes` | PDF profesional, aviso de entrega incompleta (0023), ventana emergente de la app, ajustes de Usuarios y encabezado | hacia `feat/importar-movimientos` |
 
 > Los pull requests se abren en **`Galoforito/Inventario-Inteligente`**. GitHub propone por defecto el repositorio original (`CarlosGlez/...`); hay que cambiar *base repository* antes de crearlos.
 
@@ -35,7 +35,8 @@ Todas están aplicadas y verificadas en el Supabase remoto. El historial `supaba
 | `0019_motivo_compra_movimientos.sql` | Quita la restricción de `0007` que rechazaba el motivo `compra` | Aplicada y verificada 2026-11-22 |
 | `0020` | **Reservada para el compañero** (proveedor único / ciclo de orden) | — |
 | `0021_importar_movimientos.sql` | `movements.import_key`, función `importar_movimientos`, alertas solo con ventas | Aplicada y verificada 2026-11-23 |
-| `0022_entrega_incompleta.sql` | Tipo de aviso `entrega_incompleta`, `ordenes_compra.incompleta_alert_id`, función `preparar_correo_entrega_incompleta` | Aplicada 2026-11-23 |
+| `0022_alerta_ventas_diarias.sql` | **Del compañero:** corrige el promedio ponderado de las alertas cuando hay varias ventas el mismo día | Comprobar si ya está aplicada en remoto |
+| `0023_entrega_incompleta.sql` | Tipo de aviso `entrega_incompleta`, `ordenes_compra.incompleta_alert_id`, función `preparar_correo_entrega_incompleta` | Aplicada 2026-11-23 (se creó como `0022` y se renombró porque el compañero también usó `0022`; el nombre del archivo no afecta a la base) |
 
 La Edge Function `revisar-inventario` se volvió a desplegar el 2026-11-23 con `npx supabase functions deploy revisar-inventario --use-api`.
 
@@ -71,7 +72,7 @@ Reglas implementadas (`web/src/lib/dashboard.js`):
 - Cobertura = stock ÷ ventas diarias promedio de 30 días. Por categoría: suma de stock ÷ suma de consumo (no promedio de coberturas).
 - Semáforo: **crítico** (stock 0 o < 7 días), **atención** (bajo mínimo o 7–14 días), **exceso** (> 90 días), **saludable** (resto). Sin ventas: **sin rotación** (neutro), salvo agotado o bajo mínimo.
 - Categoría requiere atención con un crítico o más de 25 % en rojo/ámbar.
-- Botón de orden: Compras/Admin. Productos **agotados** → orden rápida; con stock → enlace a Historial de alertas (la orden rápida de la base solo acepta agotados).
+- Botón de orden: Compras/Admin, para todos los productos en atención con proveedor (cambio del compañero, `a00ea7d`). La orden rápida de la base (0017) aún solo acepta agotados.
 - Proveedor mostrado: el activo de menor costo, el mismo que elige `crear_orden_rapida`.
 - Colores de la gráfica validados para daltonismo y contraste contra el fondo de la app.
 
@@ -111,7 +112,7 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 - El bot no reenvía por su cuenta los correos a proveedores (`orden_compra`, `entrega_incompleta`).
 - La app solo muestra "enviado" si el servidor lo confirma; con una función desactualizada avisa que hay que desplegarla.
 - Verificado con correo real el 2026-11-23.
-- Archivos: `supabase/migrations/0022_entrega_incompleta.sql`, `supabase/functions/revisar-inventario/{index,entrega,plantillas}.ts`, `web/src/componentes/Modal.jsx`, `web/src/paginas/Ordenes.jsx`, `web/src/paginas/Alertas.jsx`, `web/src/lib/api.js`.
+- Archivos: `supabase/migrations/0023_entrega_incompleta.sql`, `supabase/functions/revisar-inventario/{index,entrega,plantillas}.ts`, `web/src/componentes/Modal.jsx`, `web/src/paginas/Ordenes.jsx`, `web/src/paginas/Alertas.jsx`, `web/src/lib/api.js`.
 
 ---
 
@@ -156,7 +157,7 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 **Del compañero (según el plan):**
 - Proveedor único por producto, obligatorio en el alta (usar migración `0020`).
 - Ciclo de orden borrador → enviada → **confirmada** → recepción, bloqueado también en la base.
-- Botón "Crear orden" en el correo de alerta de stock. Al permitir la orden rápida con stock > 0, el botón del Dashboard funcionará también para productos bajo mínimo (cambio de una línea en `Dashboard.jsx`).
+- Botón "Crear orden" en el correo de alerta de stock. El compañero ya habilitó "Armar orden" del Dashboard para todos los productos en atención; falta que `crear_orden_rapida` acepte productos con stock > 0 (hoy los rechaza: "El producto ya no está agotado").
 - Rol Consulta con acceso de solo lectura a Órdenes.
 
 **Del equipo:**

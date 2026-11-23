@@ -366,7 +366,10 @@ describe("Dashboard", () => {
     ventas: [{ product_code: "P003", fecha: hoy, cantidad: 30 }],
     resumen: RESUMEN,
     categorias: [],
-    relaciones: [{ product_id: 3, proveedor_id: 1, costo_unitario: 70, proveedores: { nombre: "Papelera del Centro", activo: true } }],
+    relaciones: [
+      { product_id: 1, proveedor_id: 2, costo_unitario: 42, proveedores: { nombre: "Papelería Centro", activo: true } },
+      { product_id: 3, proveedor_id: 1, costo_unitario: 70, proveedores: { nombre: "Papelera del Centro", activo: true } },
+    ],
     ...cambios,
   });
 
@@ -380,17 +383,30 @@ describe("Dashboard", () => {
     expect(within(tabla).getAllByRole("row").slice(1).map((f) => within(f).getAllByRole("cell")[0].textContent))
       .toEqual(["EngrapadoraP010", "Bolígrafo azulP003"]);
     expect(within(tabla).getByText("Papelera del Centro")).toBeTruthy();
-    expect(within(tabla).getByText("Sin proveedor")).toBeTruthy();
+    expect(within(tabla).getByText("Papelería Centro")).toBeTruthy();
   });
 
-  it("Compras arma la orden de un agotado; con stock lleva a alertas", async () => {
+  it("Compras puede armar una orden para un producto agotado", async () => {
     api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
     api.cargarDashboard.mockResolvedValue(datosDashboard());
     api.crearOrdenRapida.mockResolvedValue({ folio: "OC-1", proveedor: "Papelera del Centro", cantidad: 4 });
     api.listarOrdenes.mockResolvedValue([]);
     abrir("/dashboard");
-    fireEvent.click(await screen.findByRole("button", { name: "Armar orden" }));
+    const fila = (await screen.findByText("Engrapadora")).closest("tr");
+    fireEvent.click(await within(fila).findByRole("button", { name: "Armar orden" }));
     await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(3, 4));
+  });
+
+  it("Compras puede armar una orden para un producto en atención que aún tiene stock", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.cargarDashboard.mockResolvedValue(datosDashboard());
+    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-2", proveedor: "Papelería Centro", cantidad: 7 });
+    api.listarOrdenes.mockResolvedValue([]);
+    abrir("/dashboard");
+    const tabla = (await screen.findByRole("heading", { name: /Requiere/ })).closest("section");
+    const fila = within(tabla).getByText("Bolígrafo azul").closest("tr");
+    fireEvent.click(await within(fila).findByRole("button", { name: "Armar orden" }));
+    await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(1, 7));
   });
 
   it("Consulta solo ve: no hay botón de orden", async () => {
