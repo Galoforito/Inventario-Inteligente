@@ -85,7 +85,7 @@ Verificación registrada: `npm.cmd test` (166 pruebas) y `npm.cmd run build` com
 
 Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna migración antigua.
 
-- `0011`: las funciones de alertas y órdenes existen, pero sus versiones fueron reemplazadas por migraciones posteriores (`0022` y `0016`). Las actualizaciones puntuales de datos de esa migración no se pueden demostrar solo con el estado actual.
+- `0011`: solo se ejecutó manualmente la definición de `crear_alerta_stock_bajo` (líneas 1–56); el archivo completo no se aplicó. No ejecutar el resto porque reemplazaría `crear_ordenes_desde_alerta` y reescribiría datos históricos. Su versión completa no está registrada.
 - `0012`: columnas snapshot obligatorias, FK con `ON DELETE SET NULL`, trigger de snapshots y funciones para enviar/recibir órdenes presentes.
 - `0013`: las cuatro políticas de proveedores presentes; el borrado está limitado a admin.
 - `0014`: restricciones entrada/salida y RPC de movimiento con motivo presentes.
@@ -94,4 +94,4 @@ Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna 
 - `0017`: RPC de orden rápida presente.
 - `0018`: catálogo persistente, valor predeterminado, trigger y política de lectura presentes.
 - `0019`: restricción de motivo global incluye `compra`.
-- Se registraron `0012`–`0019` como aplicadas con `supabase migration repair` después de verificar sus efectos; el comando no ejecutó SQL. La `0011` sigue sin estar registrada y debe confirmarse por separado. No ejecutar `supabase db push` mientras esa brecha exista.
+- Se registraron `0012`–`0019` como aplicadas con `supabase migration repair` después de verificar sus efectos; el comando no ejecutó SQL. `0011` permanece sin registrar por estar aplicada solo parcialmente. No ejecutar `supabase db push` mientras esa brecha exista.
