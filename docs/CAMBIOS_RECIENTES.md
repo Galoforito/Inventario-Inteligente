@@ -1,5 +1,11 @@
 # Cambios recientes
 
+## Órdenes de compra para Consulta
+
+- El rol `consulta` ahora puede abrir el apartado Órdenes, ver el listado y detalle, y exportar la orden a PDF.
+- Se mantienen ocultas las acciones de envío, recepción y reporte de entrega incompleta; la capacidad de lectura ya estaba permitida por las políticas existentes.
+- Implementación en `fix/consulta-ordenes-lectura`; falta revisar UI/RLS/RPC del resto de roles como parte de la validación final.
+
 ## Integración de funcionalidades de entrega final — 2026-11-23
 
 - Las PR #2, #3, #4, #6 y #5 quedaron fusionadas en `main`, en ese orden de dependencias; la PR #6 se integró antes de #5 por la secuencia de migraciones.

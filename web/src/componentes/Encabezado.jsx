@@ -26,7 +26,7 @@ export default function Encabezado() {
         <NavLink className={clase} to="/movimientos">Movimientos</NavLink>
         <NavLink className={clase} to="/alertas">Historial de alertas</NavLink>
         {(perfil.role === "admin" || perfil.role === "compras") && <NavLink className={clase} to="/proveedores">Proveedores</NavLink>}
-        {perfil.role !== "consulta" && <NavLink className={clase} to="/ordenes">Órdenes</NavLink>}
+        <NavLink className={clase} to="/ordenes">Órdenes</NavLink>
         {perfil.role === "admin" && <NavLink className={clase} to="/usuarios">Usuarios</NavLink>}
       </nav>
     </header>
