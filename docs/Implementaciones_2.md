@@ -155,7 +155,9 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 
 ---
 
-## 8. Pendiente después de integrar PR #2–#9
+## 8. Estado histórico al integrar PR #2–#9
+
+Esta lista refleja el estado de aquella revisión y está conservada como historial. Los puntos 1–2 y la recopilación de evidencia del punto 4 se completaron después; el estado vigente está en `PLAN_ENTREGA_FINAL.md`, `FUNCIONALIDADES_ENTREGA_FINAL.md` y `EVIDENCIA_ALERTAS.md`.
 
 Pendientes funcionales y de aceptación tras integrar las PR #2–#9:
 

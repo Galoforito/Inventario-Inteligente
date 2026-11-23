@@ -1,21 +1,30 @@
 # Cambios recientes
 
+## Cierre de desarrollo y producción — 2026-11-23
+
+- Las PR #11 (proveedor único) y #12 (confirmación antes de recepción) están fusionadas en `main`; Vercel reportó producción lista para ambas.
+- Las migraciones `0026` y `0027` se ejecutaron con `supabase db query`, se verificaron por SQL y quedaron registradas con `supabase migration repair`. `0011` sigue parcialmente aplicada; no ejecutar `db push`.
+- La Edge Function `revisar-inventario` está activa en Supabase, versión 15. `APP_URL` y secretos SMTP aparecen configurados; no se incluyen sus valores.
+- Se encontraron nueve alertas internas `stock_bajo` con estado SMTP `enviado` e IDs distintos; tres ejemplos redactados están en `docs/EVIDENCIA_ALERTAS.md`.
+- Verificación combinada del frontend: **238 pruebas aprobadas** y `npm run build` correcto. El backtest sintético reproducible evaluó 18 productos y 90 ventanas; resultados en `docs/EVALUACION_PRONOSTICO.md`.
+- Pendientes de información/aceptación: asignar proveedor real a 101 productos existentes; validar `compras` y `consulta` con cuentas activas (remoto solo muestra perfiles `admin` y `almacen`); sustituir los datos fiscales ficticios de `web/src/lib/negocio.js` por los reales antes de usar el PDF en negocio.
+
 ## Confirmación del proveedor antes de recibir una orden — 2026-11-23
 
-- En la rama `feat/recepcion-orden-confirmada`, el ciclo queda como borrador → enviada → confirmada por Compras/admin → recepción por Almacén.
+- La PR #12 integra el ciclo en `main`: borrador → enviada → confirmada por Compras/admin → recepción por Almacén.
 - La interfaz oculta la recepción hasta que la orden esté confirmada, permite confirmar la aceptación del proveedor y explica la espera en órdenes enviadas.
-- La migración `0027_confirmacion_antes_de_recepcion.sql` agrega auditoría de confirmación, revoca actualizaciones directas de órdenes desde el cliente y valida el estado en la RPC antes de aumentar stock.
+- La migración `0027_confirmacion_antes_de_recepcion.sql` agrega auditoría de confirmación, revoca actualizaciones directas de órdenes desde el cliente y valida el estado en la RPC antes de aumentar stock. Se aplicó y verificó en Supabase remoto.
 - El envío simulado también deja la orden en `enviada`; sigue requiriendo confirmación manual antes de recibir.
-- Pruebas y build locales aprobados. Migración y Edge Function aún requieren integración y despliegue; no se han ejecutado en producción.
+- La Edge Function actualizada quedó activa en versión 15; Vercel producción está lista. La verificación combinada registró 238 pruebas aprobadas y build correcto.
 
 ## Proveedor obligatorio y asignación desde Inventario — 2026-11-23
 
-- Se implementó en `feat/proveedor-unico-obligatorio` la selección obligatoria de proveedor activo al registrar productos y la asignación/cambio de proveedor desde Inventario y Proveedores.
+- La PR #11 integró en `main` la selección obligatoria de proveedor activo al registrar productos y la asignación/cambio desde Inventario y Proveedores.
 - La página de Proveedores identifica explícitamente productos pendientes; la base de datos limita la relación a un proveedor por producto y bloquea archivar/eliminar proveedores asignados hasta reasignar sus productos.
 - Excel admite la columna opcional `proveedor`; las hojas anteriores siguen siendo válidas. Las filas nuevas deben nombrar un proveedor activo, mientras las filas existentes sin esa columna conservan la relación actual.
 - La migración `0026_proveedor_unico_obligatorio.sql` conserva la asociación activa cuando encuentra duplicados y quita enlaces sobrantes; no altera las órdenes ni sus líneas históricas.
 - La auditoría remota encontró 101 productos sin proveedor activo. Se requiere que el equipo indique esas relaciones; no se asignan proveedores por conjetura.
-- Validación local: **235 pruebas aprobadas** y `npm run build` correcto. La migración 0026 se aplicó y registró en Supabase remoto el 2026-11-23; la asociación de proveedores para 101 productos existentes sigue pendiente de datos del equipo.
+- La migración 0026 se aplicó y registró en Supabase remoto el 2026-11-23. El índice y las RPC están verificados; 101 asociaciones existentes siguen pendientes de datos del equipo.
 
 ## Órdenes de compra para Consulta
 
