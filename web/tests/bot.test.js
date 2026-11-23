@@ -1,5 +1,6 @@
 // Pruebas del bot (la Edge Function). La lógica vive en archivos sin red ni
 // Deno, así que aquí se prueba con dependencias falsas.
+import { readFileSync } from "node:fs";
 import net from "node:net";
 import { describe, expect, it, vi } from "vitest";
 import { configCorreo, mensajeCorreo } from "../../supabase/functions/revisar-inventario/correo.ts";
@@ -387,5 +388,34 @@ describe("enviarCorreo", () => {
       sockets.forEach((socket) => socket.destroy());
       servidor.close();
     }
+  });
+});
+
+describe("aviso de entrega incompleta", () => {
+  const AVISO = {
+    id: 20, tipo: "entrega_incompleta", recipient: "ventas@proveedor.test",
+    subject: "Entrega incompleta de la orden OC-1", body: "Texto del aviso",
+    items: [{ codigo: "P1", nombre: "Tóner", pedida: 10, recibida: 6, faltante: 4, costo_unitario: 100, costo_faltante: 400 }],
+  };
+
+  it("al reintentarlo va al correo del proveedor, no al personal interno", async () => {
+    const deps = depsFalsos({ env: COMPLETO, reclamar: vi.fn(async () => AVISO) });
+    expect(await entregarAlerta(deps, 20)).toBe("enviado");
+    const [config, correo] = deps.enviar.mock.calls[0];
+    expect(config.to).toBe("ventas@proveedor.test");
+    expect(correo.html).toContain("Entrega incompleta de la orden OC-1");
+    expect(correo.html).toContain("$400.00");
+  });
+
+  it("no exige APP_URL, a diferencia del correo de orden", async () => {
+    const deps = depsFalsos({ env: COMPLETO, reclamar: vi.fn(async () => AVISO) });
+    expect(await entregarAlerta(deps, 20)).toBe("enviado");
+  });
+
+  it("la Edge Function importa las plantillas que usa (antes faltaba y fallaba el envío de órdenes)", () => {
+    const codigo = readFileSync(new URL("../../supabase/functions/revisar-inventario/index.ts", import.meta.url), "utf8");
+    expect(codigo).toMatch(/import \{ htmlCorreo \} from "\.\/plantillas\.ts";/);
+    expect(codigo).toContain('path.endsWith("/ordenes/entrega-incompleta")');
+    expect(codigo).toContain("(orden_compra,prueba_correo,entrega_incompleta)");
   });
 });

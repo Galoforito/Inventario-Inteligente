@@ -34,6 +34,7 @@ vi.mock("../src/lib/api.js", () => ({
   crearBorradores: vi.fn(),
   recibirLineaOrden: vi.fn(),
   enviarOrdenProveedor: vi.fn(),
+  reportarEntregaIncompleta: vi.fn(),
   listarPerfiles: vi.fn(),
   actualizarPerfil: vi.fn(),
   crearUsuario: vi.fn(),
@@ -470,5 +471,104 @@ describe("Importar movimientos", () => {
       expect(screen.queryByRole("heading", { name: "Importar movimientos desde Excel" })).toBeNull();
       cleanup();
     }
+  });
+});
+
+describe("Usuarios", () => {
+  it("Guardar se habilita solo con cambios y envía rol y estado", async () => {
+    api.listarPerfiles.mockResolvedValue([{ user_id: "48db03dc-b0ee-4ea9-a9cc-27b6688e4212", email: "becario@becario.com", role: "almacen", active: true }]);
+    api.actualizarPerfil.mockResolvedValue({});
+    abrir("/usuarios");
+    const fila = (await screen.findByText("becario@becario.com")).closest("tr");
+    expect(within(fila).getByText("ID 48db03dc…")).toBeTruthy();
+    expect(within(fila).getByRole("button", { name: "Sin cambios" }).disabled).toBe(true);
+    fireEvent.change(within(fila).getByLabelText("Rol de becario@becario.com"), { target: { value: "consulta" } });
+    expect(within(fila).getByText("Solo lectura")).toBeTruthy();
+    fireEvent.click(within(fila).getByRole("checkbox"));
+    expect(within(fila).getByText("Inactivo")).toBeTruthy();
+    fireEvent.click(within(fila).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(api.actualizarPerfil).toHaveBeenCalledWith("48db03dc-b0ee-4ea9-a9cc-27b6688e4212", "consulta", false));
+  });
+});
+
+describe("Entrega incompleta", () => {
+  const ORDEN_PARCIAL = {
+    id: 5, folio: "OC-5", estado: "recibida parcial", proveedor_id: 1, created_at: "2026-11-20T18:00:00Z", incompleta_alert_id: null,
+    proveedores: { nombre: "Papelera", correo: "ventas@papelera.test" },
+    orden_lineas: [{ id: 9, product_code: "P003", product_name: "Bolígrafo", cantidad: 10, recibida: 6, costo_unitario: 5 }],
+  };
+
+  it("Compras reporta el faltante desde la ventana de la app, con nota opcional", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN_PARCIAL]);
+    api.reportarEntregaIncompleta.mockResolvedValue({ status: "enviado", recipient: "ventas@papelera.test", message_id: "abc" });
+    const confirmar = vi.spyOn(window, "confirm");
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Reportar entrega incompleta" }));
+    const ventana = screen.getByRole("dialog", { name: "Reportar entrega incompleta" });
+    expect(within(ventana).getByText("ventas@papelera.test")).toBeTruthy();
+    const fila = within(ventana).getByText("P003").closest("tr");
+    expect([...fila.querySelectorAll("td")].slice(1).map((c) => c.textContent)).toEqual(["10", "6", "4"]);
+    expect(within(ventana).getByText("$20.00")).toBeTruthy();
+    fireEvent.change(within(ventana).getByRole("textbox"), { target: { value: "Necesitamos el resto el viernes" } });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Enviar aviso al proveedor" }));
+    expect(await screen.findByText("Aviso de entrega incompleta enviado a ventas@papelera.test; ID abc.")).toBeTruthy();
+    expect(api.reportarEntregaIncompleta).toHaveBeenCalledWith(5, "Necesitamos el resto el viernes");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(confirmar).not.toHaveBeenCalled(); // ya no usa el cuadro del navegador
+    confirmar.mockRestore();
+  });
+
+  it("Cancelar o Escape cierran la ventana sin enviar nada", async () => {
+    api.listarOrdenes.mockResolvedValue([ORDEN_PARCIAL]);
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Reportar entrega incompleta" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Reportar entrega incompleta" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(api.reportarEntregaIncompleta).not.toHaveBeenCalled();
+  });
+
+  it("ya reportada muestra la marca y no el botón; Almacén no ve el botón", async () => {
+    api.listarOrdenes.mockResolvedValue([{ ...ORDEN_PARCIAL, incompleta_alert_id: 33 }]);
+    abrir("/ordenes");
+    expect(await screen.findByText("Faltante reportado al proveedor")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reportar entrega incompleta" })).toBeNull();
+    cleanup();
+    api.obtenerPerfil.mockResolvedValue({ role: "almacen", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN_PARCIAL]);
+    abrir("/ordenes");
+    await screen.findByText(/OC-5/);
+    expect(screen.queryByRole("button", { name: "Reportar entrega incompleta" })).toBeNull();
+  });
+
+  it("el historial muestra el aviso con lo que faltó", async () => {
+    api.listarAlertas.mockResolvedValue([{
+      id: 40, tipo: "entrega_incompleta", orden_id: 5, status: "enviado", delivery_status: "enviado", attempts: 1,
+      created_at: "2026-11-23T18:00:00Z", recipient: "ventas@papelera.test", subject: "Entrega incompleta de la orden OC-5", body: "Texto",
+      items: [{ codigo: "P003", nombre: "Bolígrafo", pedida: 10, recibida: 6, faltante: 4, costo_faltante: 20 }],
+    }]);
+    abrir("/alertas");
+    expect(await screen.findByRole("heading", { name: "Entrega incompleta de la orden OC-5" })).toBeTruthy();
+    expect(screen.getByText(/pedidas 10, recibidas 6, faltan/)).toBeTruthy();
+  });
+});
+
+describe("Entrega incompleta con la función desactualizada", () => {
+  it("una respuesta sin estado de envío no se muestra como éxito", async () => {
+    api.listarOrdenes.mockResolvedValue([{
+      id: 5, folio: "OC-5", estado: "recibida parcial", proveedor_id: 1, created_at: "2026-11-20T18:00:00Z", incompleta_alert_id: null,
+      proveedores: { nombre: "Papelera", correo: "ventas@papelera.test" },
+      orden_lineas: [{ id: 9, product_code: "P003", product_name: "Bolígrafo", cantidad: 10, recibida: 6, costo_unitario: 5 }],
+    }]);
+    // Así responde la versión vieja: trata la petición como "Revisar inventario ahora".
+    api.reportarEntregaIncompleta.mockResolvedValue({ alert_id: null, status: null, otras: [] });
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Reportar entrega incompleta" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Enviar aviso al proveedor" }));
+    expect(await screen.findByText(/parece desactualizada: vuelve a desplegarla/)).toBeTruthy();
+    expect(screen.queryByText(/Aviso de entrega incompleta enviado/)).toBeNull();
   });
 });

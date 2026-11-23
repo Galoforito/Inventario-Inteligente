@@ -1,14 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Pagina from "../componentes/Pagina.jsx";
-import { enviarOrdenProveedor, listarOrdenes, recibirLineaOrden } from "../lib/api.js";
+import { enviarOrdenProveedor, listarOrdenes, recibirLineaOrden, reportarEntregaIncompleta } from "../lib/api.js";
 import { fechaLocal } from "../lib/fechas.js";
 import { dinero } from "../lib/dinero.js";
 import { usePerfil } from "../lib/perfil.jsx";
+import { LOGO_SVG, NEGOCIO } from "../lib/negocio.js";
+import { htmlOrden, totalOrden } from "../lib/orden-pdf.js";
+import Modal from "../componentes/Modal.jsx";
 
-const totalOrden = (orden) => (orden.orden_lineas ?? []).reduce(
-  (centavos, linea) => centavos + Number(linea.cantidad ?? 0) * Math.round(Number(linea.costo_unitario ?? 0) * 100), 0,
-) / 100;
+// Ventana para confirmar el aviso de entrega incompleta, con lo que falta y una nota opcional.
+function ReporteFaltante({ orden, ocupado, onEnviar, onCerrar }) {
+  const [nota, setNota] = useState("");
+  const faltantes = (orden.orden_lineas ?? []).filter((l) => l.recibida < l.cantidad);
+  const valor = faltantes.reduce((s, l) => s + (l.cantidad - l.recibida) * Math.round(Number(l.costo_unitario) * 100), 0) / 100;
+  return (
+    <Modal titulo="Reportar entrega incompleta" onCerrar={onCerrar} ocupado={ocupado}
+      acciones={<>
+        <button type="button" disabled={ocupado} onClick={onCerrar}>Cancelar</button>
+        <button type="button" className="danger" data-autofocus disabled={ocupado} onClick={() => onEnviar(orden, nota)}>
+          {ocupado ? "Enviando…" : "Enviar aviso al proveedor"}
+        </button>
+      </>}>
+      <p>Se enviará un correo a <strong>{orden.proveedores?.correo ?? "el proveedor"}</strong> ({orden.proveedores?.nombre}) avisando que la orden <strong>{orden.folio}</strong> llegó incompleta, y pidiéndole un curso de acción.</p>
+      <div className="table-scroll">
+        <table className="modal-tabla">
+          <thead><tr><th>Producto</th><th className="num">Pedidas</th><th className="num">Recibidas</th><th className="num">Faltan</th></tr></thead>
+          <tbody>{faltantes.map((l) => (
+            <tr key={l.id}>
+              <td><span className="mono">{l.product_code ?? l.products?.codigo}</span><small className="sub">{l.product_name ?? l.products?.nombre}</small></td>
+              <td className="num">{l.cantidad}</td><td className="num">{l.recibida}</td><td className="num"><strong>{l.cantidad - l.recibida}</strong></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <p className="muted">Valor pendiente: <strong>{dinero(valor)}</strong></p>
+      <label>Nota para el proveedor <small className="muted">(opcional, máximo 500 caracteres)</small>
+        <textarea rows={3} maxLength={500} value={nota} disabled={ocupado} onChange={(e) => setNota(e.target.value)}
+          placeholder="Por ejemplo: necesitamos las unidades faltantes antes del viernes." />
+      </label>
+      <p className="modal-nota">Solo se puede enviar una vez por orden.</p>
+    </Modal>
+  );
+}
 
 function fechaOrden(orden) {
   const fecha = new Date(orden.created_at);
@@ -30,6 +64,9 @@ export default function Ordenes() {
   const [montoMinimo, setMontoMinimo] = useState("");
   const [montoMaximo, setMontoMaximo] = useState("");
   const [ordenar, setOrdenar] = useState("fecha_desc");
+  const [reportando, setReportando] = useState(null); // orden cuyo faltante se va a reportar
+  const [enviandoReporte, setEnviandoReporte] = useState(false);
+  const cerrarReporte = useCallback(() => setReportando(null), []);
   const cargar = useCallback(() => listarOrdenes().then(setOrdenes).catch((e) => setAviso({ tipo: "error", texto: e.message })), []);
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => {
@@ -77,12 +114,31 @@ export default function Ordenes() {
     try { const r = await enviarOrdenProveedor(id); await cargar(); setAviso({ tipo: r.status === "error" ? "error" : "info", texto: r.status === "simulado" ? "Envío simulado: no se contactó al proveedor. DEMO_MODE está activo." : `Orden ${r.status}; destinatario ${r.recipient ?? "registrado"}; ID ${r.message_id ?? "sin ID"}.` }); }
     catch (e) { setAviso({ tipo: "error", texto: e.message }); }
   }
+  // Avisa al proveedor qué faltó y le pide un curso de acción. Se hace a mano al terminar de recibir.
+  async function reportarFaltante(orden, nota) {
+    setEnviandoReporte(true);
+    try {
+      const r = await reportarEntregaIncompleta(orden.id, nota);
+      await cargar();
+      // Solo es "enviado" si el servidor lo confirma; cualquier otra respuesta se trata como problema.
+      const texto = r?.status === "simulado" ? "Aviso de entrega incompleta simulado: DEMO_MODE está activo y no se contactó al proveedor."
+        : r?.status === "enviado" ? `${r.reutilizada ? "Este aviso ya se había enviado" : "Aviso de entrega incompleta enviado"} a ${r.recipient ?? "el proveedor"}${r.message_id ? `; ID ${r.message_id}` : ""}.`
+          : r?.status === "error" ? `No se pudo enviar el aviso: ${r.error ?? "error de correo"}. Puedes reintentarlo desde Historial de alertas.`
+            : "No se confirmó el envío del aviso. La Edge Function revisar-inventario parece desactualizada: vuelve a desplegarla e inténtalo de nuevo.";
+      setAviso({ tipo: r?.status === "enviado" ? "success" : r?.status === "simulado" ? "info" : "error", texto });
+      setReportando(null);
+    } catch (e) {
+      setAviso({ tipo: "error", texto: e.message });
+      setReportando(null);
+    } finally {
+      setEnviandoReporte(false);
+    }
+  }
+  // Abre la orden con formato profesional en otra pestaña; desde ahí se guarda como PDF.
   function imprimir(orden) {
-    const escape = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-    const lineas = (orden.orden_lineas ?? []).map((l) => `<tr><td>${escape(l.product_code ?? l.products?.codigo)}</td><td>${escape(l.product_name ?? l.products?.nombre)}</td><td>${l.cantidad}</td><td>${Number(l.costo_unitario).toFixed(2)}</td><td>${(l.cantidad * Number(l.costo_unitario)).toFixed(2)}</td></tr>`).join("");
     const ventana = window.open("", "_blank");
     if (!ventana) { setAviso({ tipo: "error", texto: "Permite ventanas emergentes para imprimir la orden como PDF." }); return; }
-    ventana.document.write(`<meta charset="utf-8"><title>${escape(orden.folio)}</title><h1>Orden de compra ${escape(orden.folio)}</h1><p>Proveedor: ${escape(orden.proveedores?.nombre)}</p><table border="1" cellpadding="8"><thead><tr><th>Código</th><th>Producto</th><th>Unidades</th><th>Costo unitario</th><th>Subtotal</th></tr></thead><tbody>${lineas}</tbody></table><p>Usa Imprimir → Guardar como PDF.</p><script>window.print()<\/script>`);
+    ventana.document.write(htmlOrden(orden, NEGOCIO, LOGO_SVG));
     ventana.document.close();
   }
   return <Pagina aviso={aviso} resumen={null}><div className="page-title"><div><h2>Órdenes de compra</h2><p>Los borradores se generan desde una alerta y agrupan líneas por proveedor.</p></div></div>
@@ -103,7 +159,8 @@ export default function Ordenes() {
       </select></label>
     </section>}
     {ordenes.length > 0 && ordenesVisibles.length === 0 && <section className="card"><p>No hay órdenes que coincidan con esos filtros.</p></section>}
-    <div className="alert-list">{ordenesVisibles.map((o) => <article className="card" key={o.id}><div className="alert-top"><h3>{o.folio} · {o.proveedores?.nombre}</h3><span className="badge">{o.estado}</span></div><p>Creada: {fechaLocal(o.created_at)}</p><p className="order-total"><strong>Monto final: {dinero(totalOrden(o))}</strong></p><div className="title-actions"><button type="button" onClick={() => imprimir(o)}>Exportar a PDF</button>{(perfil.role === "admin" || perfil.role === "compras") && o.estado === "borrador" && <button type="button" onClick={() => enviar(o.id)}>Enviar al proveedor</button>}</div><ul>{o.orden_lineas?.map((l) => <li key={l.id}>{l.product_code ?? l.products?.codigo} · {l.product_name ?? l.products?.nombre}: {l.recibida}/{l.cantidad} unidades
+    <div className="alert-list">{ordenesVisibles.map((o) => <article className="card" key={o.id}><div className="alert-top"><h3>{o.folio} · {o.proveedores?.nombre}</h3><span className="badge">{o.estado}</span></div><p>Creada: {fechaLocal(o.created_at)}</p><p className="order-total"><strong>Monto final: {dinero(totalOrden(o))}</strong></p><div className="title-actions"><button type="button" onClick={() => imprimir(o)}>Exportar a PDF</button>{(perfil.role === "admin" || perfil.role === "compras") && o.estado === "borrador" && <button type="button" onClick={() => enviar(o.id)}>Enviar al proveedor</button>}{(perfil.role === "admin" || perfil.role === "compras") && o.estado === "recibida parcial" && !o.incompleta_alert_id && <button type="button" className="danger" onClick={() => setReportando(o)}>Reportar entrega incompleta</button>}{o.incompleta_alert_id && <span className="badge warn">Faltante reportado al proveedor</span>}</div><ul>{o.orden_lineas?.map((l) => <li key={l.id}>{l.product_code ?? l.products?.codigo} · {l.product_name ?? l.products?.nombre}: {l.recibida}/{l.cantidad} unidades
       {(perfil.role === "admin" || perfil.role === "almacen") && !["recibida", "cancelada"].includes(o.estado) && <button type="button" onClick={() => recibir(l)}>Registrar recepción</button>}</li>)}</ul></article>)}</div>
+    {reportando && <ReporteFaltante orden={reportando} ocupado={enviandoReporte} onEnviar={reportarFaltante} onCerrar={cerrarReporte} />}
   </Pagina>;
 }

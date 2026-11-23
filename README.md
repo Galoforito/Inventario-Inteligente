@@ -89,7 +89,7 @@ El *project ref* es la parte de la dirección de tu proyecto: en `https://abcdxy
 
 Si el último comando pide Docker, repítelo agregando `--use-api`.
 
-**Alternativa sin instalar nada:** en el panel, **Edge Functions → Deploy a new function → Via Editor**. Nombra la función `revisar-inventario`, crea los cuatro archivos (`index.ts`, `entrega.ts`, `correo.ts`, `smtp.ts`) con el contenido de `supabase/functions/revisar-inventario/` y despliega. Después, en los detalles de la función, **desactiva la verificación de JWT**. Por esta vía ese ajuste no se toma de `config.toml`.
+**Alternativa sin instalar nada:** en el panel, **Edge Functions → Deploy a new function → Via Editor**. Nombra la función `revisar-inventario`, crea los cinco archivos (`index.ts`, `entrega.ts`, `correo.ts`, `smtp.ts`, `plantillas.ts`) con el contenido de `supabase/functions/revisar-inventario/` y despliega. Después, en los detalles de la función, **desactiva la verificación de JWT**. Por esta vía ese ajuste no se toma de `config.toml`.
 
 > Desactivar esa verificación no deja la función abierta. Ella misma revisa quién llama y responde 401 a todo lo que no sea el reloj del bot o un usuario con sesión.
 

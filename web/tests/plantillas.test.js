@@ -188,6 +188,11 @@ describe("htmlCorreo", () => {
     expect(htmlCorreo({ items: ITEMS })).toContain("Alerta de stock bajo");   // sin tipo: alerta
     expect(htmlCorreo({ tipo: "orden_compra", items: [{ codigo: "C1", nombre: "Producto", cantidad: 2, costo_unitario: 5, subtotal: 10 }], link: "https://demo.example/ordenes" })).toContain("https://demo.example/ordenes");
     expect(htmlCorreo({ tipo: "orden_compra", items: [{ codigo: "<x>", nombre: "<img>", cantidad: 1, costo_unitario: 1, subtotal: 1 }] })).toContain("&lt;img&gt;");
+    const faltante = htmlCorreo({ tipo: "entrega_incompleta", subject: "Entrega incompleta de la orden OC-9", items: [{ codigo: "C1", nombre: "<b>Tóner</b>", pedida: 10, recibida: 7, faltante: 3, costo_unitario: 5, costo_faltante: 15 }] });
+    expect(faltante).toContain("Entrega incompleta de la orden OC-9");
+    expect(faltante).toContain("&lt;b&gt;Tóner");
+    expect(faltante).toContain("Le pedimos indicarnos cómo procederá");
+    expect(faltante).toContain("$15.00");
   });
 
   it("si los datos no tienen la forma esperada devuelve undefined en vez de fallar", () => {
@@ -197,6 +202,7 @@ describe("htmlCorreo", () => {
     expect(htmlCorreo({ tipo: "reporte_semanal", items: ITEMS })).toBeUndefined();
     expect(htmlCorreo({ tipo: "reporte_semanal", items: {} })).toBeUndefined();
     expect(htmlCorreo({ tipo: "orden_compra", items: [] })).toBeUndefined();
+    expect(htmlCorreo({ tipo: "entrega_incompleta", items: [] })).toBeUndefined();
     expect(htmlCorreo({ tipo: "otro", items: ITEMS })).toBeUndefined();
   });
 });

@@ -176,7 +176,7 @@ export async function vincularProductoProveedor(proveedorId, productId, costoUni
 }
 
 export async function listarOrdenes() {
-  return revisar(await supabase.from("ordenes_compra").select("*, proveedores(nombre), orden_lineas(*, products(codigo,nombre))").order("created_at", { ascending: false }));
+  return revisar(await supabase.from("ordenes_compra").select("*, proveedores(nombre, correo, telefono, lead_time_dias), orden_lineas(*, products(codigo,nombre))").order("created_at", { ascending: false }));
 }
 
 export async function crearBorradores(alertaId) {
@@ -197,6 +197,17 @@ export async function recibirLineaOrden(lineaId, cantidad) {
 export async function enviarOrdenProveedor(ordenId) {
   const { data, error } = await supabase.functions.invoke("revisar-inventario/ordenes/enviar", { body: { orden_id: ordenId } });
   if (error) throw new Error(mensajeError(error));
+  return data;
+}
+
+/** Avisa al proveedor que la orden llegó incompleta (una sola vez por orden). */
+export async function reportarEntregaIncompleta(ordenId, nota = "") {
+  const { data, error } = await supabase.functions.invoke("revisar-inventario/ordenes/entrega-incompleta", { body: { orden_id: ordenId, nota } });
+  if (error) {
+    let detalle = null;
+    try { detalle = await error.context?.json?.(); } catch { /* sin JSON */ }
+    throw new Error(mensajeError({ status: error.context?.status, message: detalle?.error ?? error.message }));
+  }
   return data;
 }
 
