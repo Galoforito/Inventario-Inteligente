@@ -8,6 +8,15 @@
 - El envío simulado también deja la orden en `enviada`; sigue requiriendo confirmación manual antes de recibir.
 - Pruebas y build locales aprobados. Migración y Edge Function aún requieren integración y despliegue; no se han ejecutado en producción.
 
+## Proveedor obligatorio y asignación desde Inventario — 2026-11-23
+
+- Se implementó en `feat/proveedor-unico-obligatorio` la selección obligatoria de proveedor activo al registrar productos y la asignación/cambio de proveedor desde Inventario y Proveedores.
+- La página de Proveedores identifica explícitamente productos pendientes; la base de datos limita la relación a un proveedor por producto y bloquea archivar/eliminar proveedores asignados hasta reasignar sus productos.
+- Excel admite la columna opcional `proveedor`; las hojas anteriores siguen siendo válidas. Las filas nuevas deben nombrar un proveedor activo, mientras las filas existentes sin esa columna conservan la relación actual.
+- La migración `0026_proveedor_unico_obligatorio.sql` conserva la asociación activa cuando encuentra duplicados y quita enlaces sobrantes; no altera las órdenes ni sus líneas históricas.
+- La auditoría remota encontró 101 productos sin proveedor activo. Se requiere que el equipo indique esas relaciones; no se asignan proveedores por conjetura.
+- Validación local: **235 pruebas aprobadas** y `npm run build` correcto. La migración 0026 se aplicó y registró en Supabase remoto el 2026-11-23; la asociación de proveedores para 101 productos existentes sigue pendiente de datos del equipo.
+
 ## Órdenes de compra para Consulta
 
 - El rol `consulta` ahora puede abrir el apartado Órdenes, ver el listado y detalle, y exportar la orden a PDF.

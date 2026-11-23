@@ -29,6 +29,7 @@ vi.mock("../src/lib/api.js", () => ({
   obtenerPerfil: vi.fn(),
   guardarProveedor: vi.fn(),
   listarProveedores: vi.fn(),
+  listarAsignacionesProductos: vi.fn(),
   vincularProductoProveedor: vi.fn(),
   listarOrdenes: vi.fn(),
   crearBorradores: vi.fn(),
@@ -58,12 +59,14 @@ beforeEach(() => {
   api.obtenerSesion.mockResolvedValue({ user: { email: "equipo@escuela.mx" } });
   api.obtenerPerfil.mockResolvedValue({ role: "admin", active: true });
   api.alCambiarSesion.mockReturnValue(() => {});
-  api.cargarInventario.mockResolvedValue({ productos: [BAJO, SUFICIENTE], consumo: [], resumen: RESUMEN });
+  api.cargarInventario.mockResolvedValue({ productos: [BAJO, SUFICIENTE], consumo: [], resumen: RESUMEN, proveedoresActivos: [{ id: 1, nombre: "Proveedor demo" }] });
   api.cargarResumen.mockResolvedValue(RESUMEN);
   api.listarMovimientos.mockResolvedValue([]);
   api.listarAlertas.mockResolvedValue([]);
   api.listarProductosBajos.mockResolvedValue([]);
   api.consultarModoCorreo.mockResolvedValue(false);
+  api.listarProveedores.mockResolvedValue([]);
+  api.listarAsignacionesProductos.mockResolvedValue({ productos: [], relaciones: [] });
 });
 afterEach(cleanup);
 
@@ -109,6 +112,22 @@ describe("Inventario", () => {
     const panel = (await screen.findByText("Reabastecer primero")).closest("section");
     fireEvent.click(within(panel).getByRole("button", { name: "Armar orden" }));
     await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(1, 5));
+  });
+
+  it("Compras puede asignar a un producto un proveedor desde Inventario", async () => {
+    api.vincularProductoProveedor.mockResolvedValue(undefined);
+    api.cargarInventario.mockResolvedValue({
+      productos: [BAJO, SUFICIENTE], consumo: [], resumen: RESUMEN,
+      proveedoresActivos: [{ id: 2, nombre: "Proveedor B" }],
+      relaciones: [],
+    });
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    abrir("/");
+    const formulario = (await screen.findByRole("heading", { name: "Asignar proveedor a producto existente" })).closest("section");
+    fireEvent.change(within(formulario).getByLabelText("Producto"), { target: { value: "1" } });
+    fireEvent.change(within(formulario).getByLabelText("Proveedor activo"), { target: { value: "2" } });
+    fireEvent.click(within(formulario).getByRole("button", { name: "Guardar asignación" }));
+    await waitFor(() => expect(api.vincularProductoProveedor).toHaveBeenCalledWith(2, 1, 0, 1));
   });
 
   it("Consulta no ve acciones para armar órdenes desde Reabastecer primero", async () => {
@@ -162,6 +181,7 @@ describe("Inventario", () => {
     abrir();
     const formulario = (await screen.findByText("Registrar producto")).closest("section");
     const escribir = (etiqueta, valor) => fireEvent.change(within(formulario).getByLabelText(etiqueta), { target: { value: valor } });
+    escribir("Proveedor activo", "1");
     // El código lo asigna la base; la categoría nueva se crea desde el selector.
     expect(within(formulario).queryByLabelText("Código")).toBeNull();
     escribir("Nombre", "Tijeras"); escribir("Categoría", "__crear_categoria__"); escribir("Nueva categoría", "Oficina");
@@ -169,7 +189,7 @@ describe("Inventario", () => {
     fireEvent.click(within(formulario).getByRole("button", { name: "Guardar producto" }));
     expect(await screen.findByText("Producto registrado.")).toBeTruthy();
     expect(api.guardarProducto).toHaveBeenCalledWith(
-      { nombre: "Tijeras", categoria: "Oficina", costo: "35.50", stock_actual: "4", stock_minimo: "2" }, null);
+      { nombre: "Tijeras", categoria: "Oficina", proveedor_id: "1", costo: "35.50", stock_actual: "4", stock_minimo: "2" }, null);
     expect(api.cargarInventario).toHaveBeenCalledTimes(2);
   });
 
@@ -374,6 +394,22 @@ describe("navegación", () => {
   });
 });
 
+describe("Asignación de proveedores", () => {
+  it("muestra los productos pendientes y permite asignar un proveedor activo", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.listarProveedores.mockResolvedValue([{ id: 2, nombre: "Proveedor B", correo: "b@example.test", activo: true }]);
+    api.listarAsignacionesProductos.mockResolvedValue({ productos: [{ id: 1, codigo: "P003", nombre: "Bolígrafo azul" }], relaciones: [] });
+    api.vincularProductoProveedor.mockResolvedValue(undefined);
+    abrir("/proveedores");
+    expect(await screen.findByText(/1 de 1 productos no tienen proveedor activo/)).toBeTruthy();
+    const fila = screen.getByRole("row", { name: /P003/ });
+    fireEvent.click(within(fila).getByRole("button", { name: "Asignar" }));
+    const formulario = screen.getByRole("heading", { name: "Asignar producto" }).closest("form");
+    fireEvent.change(within(formulario).getByLabelText("Proveedor"), { target: { value: "2" } });
+    fireEvent.click(within(formulario).getByRole("button", { name: "Guardar asignación" }));
+    await waitFor(() => expect(api.vincularProductoProveedor).toHaveBeenCalledWith(2, 1, 0, 1));
+  });
+});
 describe("Dashboard", () => {
   const hoy = new Date().toISOString().slice(0, 10);
   const AGOTADO = { id: 3, codigo: "P010", nombre: "Engrapadora", categoria: "Oficina", stock_actual: 0, stock_minimo: 4, costo: 80 };

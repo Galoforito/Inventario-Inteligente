@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FormularioProducto from "../componentes/FormularioProducto.jsx";
+import AsignacionProveedor from "../componentes/AsignacionProveedor.jsx";
 import ImportarExcel from "../componentes/ImportarExcel.jsx";
 import Pagina from "../componentes/Pagina.jsx";
 import Prioridad from "../componentes/Prioridad.jsx";
 import TablaProductos from "../componentes/TablaProductos.jsx";
 import {
-  cargarInventario, crearOrdenRapida, eliminarProducto, eliminarTodosProductos, guardarProducto, importarProductos, registrarMovimiento, revisarAhora,
+  cargarInventario, crearOrdenRapida, eliminarProducto, eliminarTodosProductos, guardarProducto, importarProductos, registrarMovimiento, revisarAhora, vincularProductoProveedor,
 } from "../lib/api.js";
 import { avisoRevision } from "../lib/avisos.js";
 import { crearExcel, descargar, leerExcel, revisarArchivo } from "../lib/excel.js";
@@ -66,6 +67,10 @@ export default function Inventario() {
   const alGuardar = (datosProducto) => ejecutar(() => guardarProducto(datosProducto, null), "Producto registrado.");
   const alEditar = (id, datosProducto) => ejecutar(() => guardarProducto(datosProducto, id), "Producto actualizado.");
   const alMover = (id, tipo, cantidad, motivo) => ejecutar(() => registrarMovimiento(id, tipo, cantidad, motivo), "Movimiento registrado.");
+  const alVincularProveedor = (proveedorId, productoId, costoUnitario, minimoUnidades) => ejecutar(
+    () => vincularProductoProveedor(proveedorId, productoId, costoUnitario, minimoUnidades),
+    "Proveedor asignado al producto.",
+  );
 
   async function alCrearOrdenRapida(producto) {
     setOcupado(true);
@@ -152,9 +157,16 @@ export default function Inventario() {
       <Prioridad prioridad={prioridad} puedeCrearOrden={perfil.role === "admin" || perfil.role === "compras"} ocupado={ocupado} onCrearOrdenRapida={alCrearOrdenRapida} />
 
       {puedeEditar && <div className="two-columns">
-        <FormularioProducto categorias={categorias} ocupado={ocupado} onGuardar={alGuardar} />
+        <FormularioProducto categorias={categorias} proveedores={datos.proveedoresActivos ?? []} ocupado={ocupado} onGuardar={alGuardar} />
         <ImportarExcel ocupado={ocupado} onImportar={alImportar} />
       </div>}
+      {(perfil.role === "admin" || perfil.role === "compras") && <AsignacionProveedor
+        productos={productos}
+        proveedores={datos.proveedoresActivos ?? []}
+        relaciones={datos.relaciones ?? []}
+        ocupado={ocupado}
+        onGuardar={alVincularProveedor}
+      />}
 
       <TablaProductos productos={productos} categorias={categorias} ocupado={ocupado} puedeEditar={puedeEditar} puedeEliminar={perfil.role === "admin"}
         onMovimiento={alMover} onEditar={alEditar} onEliminar={alEliminar} />
