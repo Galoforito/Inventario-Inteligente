@@ -169,7 +169,7 @@ export function htmlAlerta(alerta: { items: unknown; actionUrl?: string }): stri
 
   const filaTotal = hayCostos
     ? `<tr><td colspan="6" style="padding:11px 10px;${DER}font-weight:bold;">Costo estimado para llegar al mínimo</td>`
-      + `<td style="padding:11px 10px;${DER}font-weight:bold;color:${ROJO};font-size:15px;">${dinero(total)}</td></tr>`
+      + `<td style="padding:11px 10px;${DER}font-weight:bold;color:${ROJO};font-size:15px;">${dinero(total)}</td><td></td></tr>`
     : "";
 
   const encabezado =
