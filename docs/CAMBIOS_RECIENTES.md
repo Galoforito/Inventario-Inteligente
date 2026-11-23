@@ -17,13 +17,13 @@
 
 - La PR #9 quedó fusionada en `main` el 2026-11-23. Las alertas de stock incluyen un enlace por producto; Admin y Compras crean el borrador validado por Supabase y llegan a Órdenes.
 - Los tests verifican acciones seguras por producto, creación desde el enlace y bloqueo para Consulta. La plantilla de correo requiere `APP_URL` para añadir enlaces.
-- La Edge Function aún debe desplegarse para activar la versión en producción y debe comprobarse un envío SMTP real. No se enviaron correos reales en esta integración.
+- El 2026-11-23 se desplegó `revisar-inventario` desde `main`; Supabase reporta estado ACTIVE, versión 13. El equipo confirmó el recorrido en producción: alerta interna, enlace para crear borrador, pestaña Órdenes y envío al proveedor.
 ## Integración de funcionalidades de entrega final — 2026-11-23
 
 - Las PR #2–#9 están fusionadas en `main` del fork. Las PR #7, #8 y #9 se integraron en orden de dependencia.
 - Verificación local final: **231 pruebas aprobadas** y `npm run build` correcto. El lint remoto de Supabase (`public`, errores) no encontró errores de esquema.
 - La migración `0025` se ejecutó con `db query`, se registró y sus efectos se verificaron en SQL de solo lectura. `0011` sigue parcialmente aplicada y sin registrar; no usar `db push`.
-- La acción de reabastecimiento desde el correo está integrada; queda desplegar la Edge Function y evidenciar correos SMTP reales en `EVIDENCIA_ALERTAS.md`.
+- La acción desde alerta está desplegada y validada de extremo a extremo en producción. Sigue pendiente completar y registrar tres envíos reales distintos de alertas de stock en `EVIDENCIA_ALERTAS.md`.
 ## Historial de alertas y codificación
 
 - La reposición hasta el mínimo se calcula como faltante por costo unitario del catálogo. El costo sugerido por pronóstico queda separado.
