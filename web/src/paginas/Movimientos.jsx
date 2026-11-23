@@ -33,7 +33,8 @@ function ImportarMovimientos({ ocupado, onImportar, onPlantilla }) {
     <section className="card">
       <h3>Importar movimientos desde Excel</h3>
       <p>
-        Columnas: <code>codigo, fecha, tipo, motivo, cantidad</code>. Tipo: <strong>entrada</strong> (compra, devolucion, ajuste, otro)
+        Columnas: <code>codigo, fecha, tipo, motivo, cantidad</code> e <code>id_movimiento</code> opcional al final. Usa un ID estable del sistema de origen para distinguir movimientos iguales; junto con el SKU evita reimportar la misma fila. Los archivos anteriores sin esa columna siguen funcionando. Si una fila ya se importó sin ID, no le agregues uno para reimportarla: no se puede asociar con certeza al registro anterior.
+        Tipo: <strong>entrada</strong> (compra, devolucion, ajuste, otro)
         o <strong>salida</strong> (venta, merma, ajuste, otro). Se revisa todo el archivo antes de guardar: si una fila nueva tiene un error
         o dejaría el stock en negativo, no se guarda nada. Si vuelves a subir un archivo, las filas que ya estaban importadas se omiten.
       </p>
@@ -118,7 +119,7 @@ export default function Movimientos() {
                     <td data-etiqueta="Unidades">{m.cantidad}</td>
                     <td data-etiqueta="Antes">{m.stock_anterior}</td>
                     <td data-etiqueta="Después">{m.stock_nuevo}</td>
-                    <td data-etiqueta="Origen">{m.import_key ? "Excel" : "Manual"}</td>
+                    <td data-etiqueta="Origen">{m.import_key || m.source_id ? "Excel" : "Manual"}</td>
                   </tr>
                 ))}
               </tbody>

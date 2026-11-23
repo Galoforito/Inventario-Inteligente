@@ -73,3 +73,10 @@ Verificación registrada: `npm.cmd test` (166 pruebas) y `npm.cmd run build` com
 - Se elige el proveedor activo asignado con menor costo cotizado y se usa la cantidad sugerida, respetando el mínimo de unidades del producto.
 - La acción crea o reutiliza un borrador sin alerta asociada; si el producto no tiene proveedor activo, muestra el motivo.
 - La migración `0017_orden_rapida_producto_agotado.sql` valida permisos, existencia de stock cero y crea la línea del pedido.
+
+## Identificador estable en importación de movimientos
+
+- La plantilla de Excel incluye `id_movimiento` opcional al final. El ID debe ser estable en el sistema de origen y se interpreta junto con el SKU.
+- Con ID, los movimientos idénticos con IDs distintos se importan por separado; repetir el mismo SKU + ID omite la fila. Reutilizar ese par con otros datos produce error para evitar alterar el historial silenciosamente.
+- Los archivos antiguos sin la columna siguen funcionando y conservan la deduplicación por contenido y posición de filas idénticas. No agregues IDs retroactivos a filas ya importadas sin ID: no pueden asociarse con certeza a su registro previo.
+- La migración `0023_id_movimiento_importado.sql` agrega el campo e instala la lógica transaccional en la RPC.
