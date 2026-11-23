@@ -13,8 +13,10 @@ export default function Usuarios() {
     catch (e) { setAviso({ tipo: "error", texto: e.message }); }
   }
   async function crear(evento) {
-    evento.preventDefault(); const f = new FormData(evento.currentTarget);
-    try { const usuario = await crearUsuario(f.get("email"), f.get("password"), f.get("role")); await cargar(); evento.currentTarget.reset(); setAviso({ tipo: "success", texto: `Usuario creado (${usuario.user_id}). Comparte la contraseña inicial que ingresaste por un canal seguro.` }); }
+    evento.preventDefault();
+    const formulario = evento.currentTarget;
+    const f = new FormData(formulario);
+    try { const usuario = await crearUsuario(f.get("email"), f.get("password"), f.get("role")); await cargar(); formulario.reset(); setAviso({ tipo: "success", texto: `Usuario creado (${usuario.user_id}). Comparte la contraseña inicial que ingresaste por un canal seguro.` }); }
     catch (e) { setAviso({ tipo: "error", texto: e.message }); }
   }
   return <Pagina aviso={aviso} resumen={null}><div className="page-title"><div><h2>Usuarios y roles</h2><p>El backend crea la cuenta y aplica el rol solicitado; la contraseña no se guarda en el perfil.</p></div></div>
