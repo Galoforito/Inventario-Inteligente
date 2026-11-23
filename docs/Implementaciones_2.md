@@ -39,6 +39,7 @@ Las migraciones activas están verificadas en el Supabase remoto. El historial r
 | `0022_alerta_ventas_diarias.sql` | Corrige el promedio ponderado de las alertas cuando hay varias ventas el mismo día | Aplicada, verificada y registrada 2026-11-23 |
 | `0023_id_movimiento_importado.sql` | ID opcional estable para deduplicar importaciones por SKU + ID | Aplicada, verificada y registrada 2026-11-23 |
 | `0024_entrega_incompleta.sql` | Tipo de aviso `entrega_incompleta`, `ordenes_compra.incompleta_alert_id`, función `preparar_correo_entrega_incompleta` | Efectos aplicados y verificados 2026-11-23; registrada como `0024` |
+| `0025_orden_rapida_atencion.sql` | Extiende la orden rápida a productos todavía en stock si están bajo mínimo o tienen cobertura de hasta 14 días | Rama `feat/orden-rapida-bajo-minimo`; pendiente de revisión/aplicación remota. No ejecutada en Supabase. |
 
 La Edge Function `revisar-inventario` se volvió a desplegar el 2026-11-23 con `npx supabase functions deploy revisar-inventario --use-api`.
 
@@ -160,7 +161,7 @@ Estas tareas no forman parte de los merges ya hechos:
 
 1. **Proveedor único por producto:** hacer obligatoria la asignación de un proveedor activo al crear producto y permitir asignarlo/editarlo desde Inventario y Proveedores. `0020` sigue reservada y no existe como migración en `main`; acordar el número disponible antes de crear una migración, sin asumir que debe ejecutarse `0020`.
 2. **Ciclo de compra:** bloquear recepción hasta que la orden esté confirmada, tanto en la interfaz como en la función/RPC de base de datos. El envío simulado en demo cuenta como enviado, pero requiere confirmación manual.
-3. **Reabastecimiento desde alertas:** añadir al correo de stock el botón para iniciar un borrador. El botón del Dashboard ya está disponible para productos en atención con proveedor, pero la RPC de orden rápida todavía rechaza productos con stock mayor que cero.
+3. **Reabastecimiento desde alertas:** añadir al correo de stock el botón para crear directamente un borrador. La rama `feat/orden-rapida-bajo-minimo` actualiza la RPC para aceptar productos en atención con stock disponible; falta revisar e integrar esa rama.
 4. **Correo de alerta de stock:** configurar y validar envío SMTP real al personal interno; registrar tres envíos en `EVIDENCIA_ALERTAS.md`. La verificación real del correo de entrega incompleta es independiente y no sustituye esta evidencia.
 5. **Roles y permisos:** validar recorridos y restricciones en UI/RLS/RPC. Asegurar que `consulta` pueda ver el listado y detalle de órdenes sin capacidad de mutación.
 6. **Aceptación funcional:** revisar Dashboard con datos reales y comparar sus cifras con Inventario; volver a ejecutar `python scripts/evaluar_pronostico.py` tras el cambio de ventana/promedio; verificar la cuenta y los datos demo en Supabase remoto.

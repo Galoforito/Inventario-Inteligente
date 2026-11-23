@@ -1,5 +1,11 @@
 # Cambios recientes
 
+## Orden rápida para productos en atención
+
+- La migración `0025_orden_rapida_atencion.sql` amplía el borrador rápido a productos con stock disponible si están bajo mínimo o su cobertura calculada con ventas de 30 días es de hasta 14 días.
+- El servidor vuelve a calcular la cobertura y valida el estado al ejecutar la RPC; un producto que ya dejó de requerir atención no genera una orden.
+- La migración está en `feat/orden-rapida-bajo-minimo` y todavía no se ha ejecutado en Supabase.
+
 ## Integración de funcionalidades de entrega final — 2026-11-23
 
 - Las PR #2, #3, #4, #6 y #5 quedaron fusionadas en `main`, en ese orden de dependencias; la PR #6 se integró antes de #5 por la secuencia de migraciones.
@@ -103,3 +109,9 @@ Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna 
 - `0018`: catálogo persistente, valor predeterminado, trigger y política de lectura presentes.
 - `0019`: restricción de motivo global incluye `compra`.
 - Se registraron `0012`–`0019` como aplicadas con `supabase migration repair` después de verificar sus efectos; el comando no ejecutó SQL. `0011` permanece sin registrar por estar aplicada solo parcialmente. No ejecutar `supabase db push` mientras esa brecha exista.
+
+## Orden rápida para productos en atención
+
+- La migración `0025_orden_rapida_atencion.sql` amplía el borrador rápido a productos con stock disponible si están bajo mínimo o su cobertura calculada con ventas de 30 días es de hasta 14 días.
+- El servidor vuelve a calcular la cobertura y valida el estado al ejecutar la RPC; un producto que ya dejó de requerir atención no genera una orden.
+- La migración está en `feat/orden-rapida-bajo-minimo` y todavía no se ha ejecutado en Supabase.
