@@ -101,6 +101,21 @@ describe("Inventario", () => {
     expect(fila.className).toContain("low-row");
   });
 
+  it("Admin puede armar una orden desde Reabastecer primero con stock positivo", async () => {
+    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-PANEL", proveedor: "Proveedor", cantidad: 5 });
+    api.listarOrdenes.mockResolvedValue([]);
+    abrir("/");
+    const panel = (await screen.findByText("Reabastecer primero")).closest("section");
+    fireEvent.click(within(panel).getByRole("button", { name: "Armar orden" }));
+    await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(1, 5));
+  });
+
+  it("Consulta no ve acciones para armar órdenes desde Reabastecer primero", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "consulta", active: true });
+    abrir("/");
+    const panel = (await screen.findByText("Reabastecer primero")).closest("section");
+    expect(within(panel).queryByRole("button", { name: "Armar orden" })).toBeNull();
+  });
   it("el panel de reabasto sugiere llegar al mínimo y suma la compra", async () => {
     abrir();
     const panel = (await screen.findByText("Reabastecer primero")).closest("section");
