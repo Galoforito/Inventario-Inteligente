@@ -12,6 +12,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { type Deps, manejar, type Puerta } from "./entrega.ts";
 import { enviarCorreo } from "./smtp.ts";
 import { configCorreo } from "./correo.ts";
+import { htmlCorreo } from "./plantillas.ts";
 
 // Llave maestra del proyecto. Supabase la pone sola en el entorno de la función;
 // nunca se escribe en el código ni viaja al navegador.
@@ -65,7 +66,9 @@ const deps: Deps & Puerta = {
   },
 
   async pendientes() {
-    const { data, error } = await base.from("alerts").select("id").in("status", ["pendiente", "error"]).neq("tipo", "orden_compra").neq("tipo", "prueba_correo").order("id");
+    // Los correos a proveedores solo salen cuando una persona los pide; el bot no los reintenta solo.
+    const { data, error } = await base.from("alerts").select("id").in("status", ["pendiente", "error"])
+      .not("tipo", "in", "(orden_compra,prueba_correo,entrega_incompleta)").order("id");
     revisarError(error);
     return (data ?? []).map((fila) => fila.id);
   },
@@ -180,6 +183,61 @@ async function enviarOrdenProveedor(req: Request): Promise<Response> {
   return json({ alert_id: id, status: "enviado", recipient, message_id: enviado.messageId });
 }
 
+// Compras/Admin avisan al proveedor que la orden llegó incompleta y piden un curso de acción.
+// Igual que el envío de la orden: un solo aviso por orden, con historial, modo demo y reintento.
+async function reportarEntregaIncompleta(req: Request): Promise<Response> {
+  const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+  const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "Esta acción solo acepta POST." }, 405);
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: sesion, error: errorSesion } = await base.auth.getUser(token);
+  if (errorSesion || !sesion.user) return json({ error: "No autorizado." }, 401);
+  const { data: perfil } = await base.from("profiles").select("role,active").eq("user_id", sesion.user.id).maybeSingle();
+  if (!perfil?.active || !["admin", "compras"].includes(perfil.role)) return json({ error: "Se requiere rol compras o admin." }, 403);
+  let ordenId: number;
+  let nota: string | null = null;
+  try {
+    const cuerpo = await req.json();
+    ordenId = Number(cuerpo.orden_id);
+    if (typeof cuerpo.nota === "string") nota = cuerpo.nota;
+  } catch { return json({ error: "JSON inválido." }, 400); }
+  if (!Number.isSafeInteger(ordenId) || ordenId <= 0) return json({ error: "orden_id debe ser positivo." }, 400);
+
+  const { data: preparada, error: errorPreparar } = await base.rpc("preparar_correo_entrega_incompleta", { p_orden_id: ordenId, p_nota: nota });
+  if (errorPreparar) return json({ error: errorPreparar.message }, 400);
+  const id = Number(preparada.alert_id);
+  const { data: alerta, error: errorAlerta } = await base.from("alerts").select("*").eq("id", id).single();
+  if (errorAlerta) return json({ error: errorAlerta.message }, 500);
+  if (alerta.status === "enviado" || alerta.status === "simulado") {
+    return json({ alert_id: id, status: alerta.status, recipient: alerta.recipient, message_id: alerta.message_id, reutilizada: true });
+  }
+  const { data: reclamada, error: errorClaim } = await base.rpc("reclamar_alerta", { p_id: id });
+  if (errorClaim) return json({ error: errorClaim.message }, 500);
+  if (!reclamada?.length) return json({ alert_id: id, status: alerta.status });
+
+  const recipient = alerta.recipient;
+  try {
+    const config = configCorreo(Deno.env.toObject());
+    if (config.modo === "demo") {
+      await base.from("alerts").update({ status: "simulado", delivery_status: "simulado", error: null }).eq("id", id);
+      return json({ alert_id: id, status: "simulado", recipient });
+    }
+    const enviado = await enviarCorreo({ ...config, to: recipient }, {
+      subject: alerta.subject, body: alerta.body,
+      html: htmlCorreo({ tipo: "entrega_incompleta", items: alerta.items, subject: alerta.subject }),
+    });
+    const enviadoAt = new Date().toISOString();
+    const { error } = await base.from("alerts").update({ status: "enviado", delivery_status: "enviado", recipient, message_id: enviado.messageId, sent_at: enviadoAt, error: null }).eq("id", id);
+    if (error) return json({ alert_id: id, status: "enviado", message_id: enviado.messageId, warning: "SMTP aceptó el mensaje, pero falló al guardar el historial." }, 500);
+    return json({ alert_id: id, status: "enviado", recipient, message_id: enviado.messageId });
+  } catch (motivo) {
+    const message = motivo instanceof Error ? motivo.message : String(motivo);
+    await base.from("alerts").update({ status: "error", delivery_status: "fallido", recipient, error: message }).eq("id", id);
+    return json({ alert_id: id, status: "error", error: message }, 502);
+  }
+}
+
 async function probarCorreo(req: Request): Promise<Response> {
   const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
   const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
@@ -222,6 +280,7 @@ Deno.serve((req) => {
   if (path.endsWith("/modo-correo")) return consultarModoCorreo(req);
   if (path.endsWith("/usuarios")) return gestionarUsuarios(req);
   if (path.endsWith("/ordenes/enviar")) return enviarOrdenProveedor(req);
+  if (path.endsWith("/ordenes/entrega-incompleta")) return reportarEntregaIncompleta(req);
   if (path.endsWith("/correo/prueba")) return probarCorreo(req);
   return manejar(req, deps);
 });

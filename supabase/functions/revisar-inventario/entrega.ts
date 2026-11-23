@@ -59,7 +59,9 @@ export async function entregarAlerta(deps: Deps, id: number): Promise<string> {
       status = "simulado";
       evidencia = { recipient: "modo demo; sin destinatario real", deliveryStatus: "simulado" };
     } else {
-      const destinatario = alerta.tipo === "orden_compra" && alerta.recipient ? alerta.recipient : config.to;
+      // La orden y el aviso de entrega incompleta van al proveedor; lo demás, al personal interno.
+      const alProveedor = alerta.tipo === "orden_compra" || alerta.tipo === "entrega_incompleta";
+      const destinatario = alProveedor && alerta.recipient ? alerta.recipient : config.to;
       evidencia = { recipient: destinatario, deliveryStatus: "fallido" };
       if (alerta.tipo === "orden_compra" && !deps.env.APP_URL) throw new Error("Configura APP_URL para incluir el enlace de la orden al proveedor.");
       const link = deps.env.APP_URL ? `${deps.env.APP_URL.replace(/\/$/, "")}/ordenes` : undefined;

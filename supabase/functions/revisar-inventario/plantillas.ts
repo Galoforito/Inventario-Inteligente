@@ -285,7 +285,41 @@ function htmlOrden(items: Fila[], link?: string): string {
   return `<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>Orden de compra</title></head><body><div style="font-family:Arial,sans-serif;color:#0f1b33"><h1 style="background:#0f1b33;color:white;padding:18px">Orden de compra</h1><table style="border-collapse:collapse;width:100%"><thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th></tr></thead><tbody>${filas}</tbody></table>${enlace}<p>Responda para confirmar la orden y la fecha de entrega.</p></div></body></html>`;
 }
 
-export function htmlCorreo(alerta: { tipo?: string; items?: unknown; link?: string }): string | undefined {
+/**
+ * Aviso al proveedor: la orden llegó incompleta. Muestra lo pedido, lo recibido
+ * y lo que falta, y pide un curso de acción. El texto plano (body) lleva lo mismo.
+ */
+function htmlEntregaIncompleta(items: Fila[], titulo?: string): string {
+  const celda = `padding:8px 10px;border-bottom:1px solid ${BORDE}`;
+  const filas = items.map((i) => `<tr>
+    <td style="${celda};font-family:Consolas,monospace">${escapar(i.codigo)}</td><td style="${celda}">${escapar(i.nombre)}</td>
+    <td style="${celda};text-align:right">${entero(i.pedida)}</td><td style="${celda};text-align:right">${entero(i.recibida)}</td>
+    <td style="${celda};text-align:right;font-weight:700;color:${ROJO}">${entero(i.faltante)}</td>
+    <td style="${celda};text-align:right">${dinero(i.costo_faltante)}</td></tr>`).join("");
+  const total = items.reduce((s, i) => s + (numero(i.costo_faltante) ?? 0), 0);
+  const th = `padding:8px 10px;text-align:left;font-size:12px;color:#fff;background:${MARINO}`;
+  return `<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>${escapar(titulo ?? "Entrega incompleta")}</title></head>
+<body style="margin:0;background:#f3f5f9"><div style="max-width:680px;margin:0 auto;padding:20px;font-family:Arial,sans-serif;color:${MARINO}">
+  <div style="background:${MARINO};color:#fff;padding:18px 20px;border-bottom:4px solid ${DORADO}">
+    <div style="font-size:12px;letter-spacing:.12em;color:${DORADO};font-weight:700">AVISO AL PROVEEDOR</div>
+    <h1 style="margin:6px 0 0;font-size:20px">${escapar(titulo ?? "Entrega incompleta")}</h1></div>
+  <div style="background:#fff;padding:20px;border:1px solid ${BORDE};border-top:0">
+    <p style="margin:0 0 14px">Recibimos la orden de forma <strong>incompleta</strong>. Estas son las unidades pendientes:</p>
+    <table style="border-collapse:collapse;width:100%;font-size:14px"><thead><tr>
+      <th style="${th}">SKU</th><th style="${th}">Producto</th><th style="${th};text-align:right">Pedidas</th>
+      <th style="${th};text-align:right">Recibidas</th><th style="${th};text-align:right">Faltan</th><th style="${th};text-align:right">Valor</th></tr></thead>
+      <tbody>${filas}</tbody>
+      <tfoot><tr><td colspan="5" style="padding:10px;text-align:right;font-weight:700">Valor pendiente</td>
+        <td style="padding:10px;text-align:right;font-weight:700">${dinero(total)}</td></tr></tfoot></table>
+    <div style="margin-top:16px;padding:12px 14px;background:${ROJO_SUAVE};border-left:4px solid ${ROJO}">
+      <strong>Le pedimos indicarnos cómo procederá:</strong>
+      <ul style="margin:8px 0 0;padding-left:20px"><li>Enviar las unidades faltantes e informarnos la nueva fecha de entrega, o</li>
+        <li>Ajustar la orden y la factura a lo efectivamente entregado.</li></ul></div>
+    <p style="margin:16px 0 0;color:${GRIS};font-size:13px">Puede responder directamente a este correo.</p>
+  </div></div></body></html>`;
+}
+
+export function htmlCorreo(alerta: { tipo?: string; items?: unknown; link?: string; subject?: string }): string | undefined {
   try {
     const tipo = alerta.tipo ?? "stock_bajo";
     if (tipo === "stock_bajo") {
@@ -302,6 +336,10 @@ export function htmlCorreo(alerta: { tipo?: string; items?: unknown; link?: stri
     if (tipo === "orden_compra") {
       if (!Array.isArray(alerta.items) || !alerta.items.every(esObjeto) || alerta.items.length === 0) return undefined;
       return htmlOrden(alerta.items, alerta.link);
+    }
+    if (tipo === "entrega_incompleta") {
+      if (!Array.isArray(alerta.items) || !alerta.items.every(esObjeto) || alerta.items.length === 0) return undefined;
+      return htmlEntregaIncompleta(alerta.items, alerta.subject);
     }
     return undefined;
   } catch {

@@ -8,8 +8,8 @@ import { fechaLocal } from "../lib/fechas.js";
 import { calcularReposicion, crearCsvAlertas } from "../lib/alertas.js";
 import { usePerfil } from "../lib/perfil.jsx";
 
-const tipoDe = (a) => a.tipo === "orden_compra" ? "orden_compra" : a.tipo === "reporte_semanal" ? "reporte_semanal" : "stock_bajo";
-const textoTipo = (tipo) => ({ stock_bajo: "Alerta de stock", orden_compra: "Orden de compra", reporte_semanal: "Reporte semanal" })[tipo];
+const tipoDe = (a) => ["orden_compra", "reporte_semanal", "entrega_incompleta"].includes(a.tipo) ? a.tipo : "stock_bajo";
+const textoTipo = (tipo) => ({ stock_bajo: "Alerta de stock", orden_compra: "Orden de compra", reporte_semanal: "Reporte semanal", entrega_incompleta: "Entrega incompleta" })[tipo];
 const cantidad = (i) => calcularReposicion(i).faltante;
 const costoUnitario = (i) => calcularReposicion(i).costoUnitario;
 const subtotal = (i) => calcularReposicion(i).subtotal;
@@ -67,14 +67,17 @@ function Tarjeta({ alerta, children }) {
   const items = Array.isArray(alerta.items) ? alerta.items : [];
   const reporte = tipo === "reporte_semanal" && !Array.isArray(alerta.items) ? alerta.items ?? {} : null;
   const lineasOrden = tipo === "orden_compra" ? items : [];
+  const faltantes = tipo === "entrega_incompleta" ? items : [];
   return <article className={`card alert-card type-${tipo}`}>
     <div className="alert-top"><div><span className="type-label">{textoTipo(tipo)}</span>
-      <h3>{tipo === "stock_bajo" ? `Alerta #${alerta.id}` : tipo === "orden_compra" ? `Orden de compra #${alerta.orden_id ?? alerta.id}` : `Reporte semanal #${alerta.id}`}</h3>
-      <span>{fechaLocal(alerta.created_at)} · {tipo === "stock_bajo" ? `${items.length} producto(s)` : tipo === "orden_compra" ? `${lineasOrden.length} línea(s)` : `${reporte?.resumen?.total ?? 0} producto(s) · ${reporte?.movimientos?.length ?? 0} movimiento(s)`}</span>
+      <h3>{tipo === "stock_bajo" ? `Alerta #${alerta.id}` : tipo === "orden_compra" ? `Orden de compra #${alerta.orden_id ?? alerta.id}` : tipo === "entrega_incompleta" ? alerta.subject : `Reporte semanal #${alerta.id}`}</h3>
+      <span>{fechaLocal(alerta.created_at)} · {tipo === "stock_bajo" ? `${items.length} producto(s)` : tipo === "orden_compra" ? `${lineasOrden.length} línea(s)` : tipo === "entrega_incompleta" ? `${faltantes.length} producto(s) con faltante` : `${reporte?.resumen?.total ?? 0} producto(s) · ${reporte?.movimientos?.length ?? 0} movimiento(s)`}</span>
     </div><Estado alerta={alerta} /></div>
     {tipo === "stock_bajo" && <TablaReposicion items={items} />}
     {tipo === "orden_compra" && <><p>Proveedor: {alerta.recipient ?? "sin destinatario"} · Orden de compra preparada para aprobación manual.</p>
       <ul>{lineasOrden.map((l, i) => <li key={`${l.codigo}-${i}`}><strong>{l.codigo} — {l.nombre}</strong>: {l.cantidad} u. × {dinero(l.costo_unitario)} = {dinero(l.subtotal ?? Number(l.cantidad) * Number(l.costo_unitario))}</li>)}</ul></>}
+    {tipo === "entrega_incompleta" && <><p>Proveedor: {alerta.recipient ?? "sin destinatario"} · Se le pidió un curso de acción por lo que faltó.</p>
+      <ul>{faltantes.map((l, i) => <li key={`${l.codigo}-${i}`}><strong>{l.codigo} — {l.nombre}</strong>: pedidas {l.pedida}, recibidas {l.recibida}, faltan <strong>{l.faltante}</strong> ({dinero(l.costo_faltante)})</li>)}</ul></>}
     {reporte && <ul><li>Productos con stock bajo: <strong>{reporte.resumen?.bajos ?? 0}</strong></li><li>Valor del inventario: <strong>{dinero(reporte.resumen?.valor)}</strong></li>
       <li>Movimientos de la semana: Entradas: {reporte.entradas ?? 0} u. · Salidas: {reporte.salidas ?? 0} u.</li></ul>}
     <CorreoYResultado alerta={alerta} />{children}
@@ -140,7 +143,7 @@ export default function Alertas() {
     </div>
     {modoDemo && <div className="demo-banner" role="status"><strong>Modo simulado activo.</strong> Sin SMTP configurado, las alertas se guardan pero no se envían.</div>}
     <section className="alert-filters card" aria-label="Filtros del historial">
-      <label>Tipo<select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}><option value="">Todos los tipos</option><option value="stock_bajo">Alerta de stock</option><option value="orden_compra">Orden de compra</option><option value="reporte_semanal">Reporte semanal</option></select></label>
+      <label>Tipo<select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}><option value="">Todos los tipos</option><option value="stock_bajo">Alerta de stock</option><option value="orden_compra">Orden de compra</option><option value="reporte_semanal">Reporte semanal</option><option value="entrega_incompleta">Entrega incompleta</option></select></label>
       <label>Estado<select aria-label="Filtrar por estado de entrega" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}><option value="">Todos los estados</option>{["pendiente","enviado","entregado","rebotado","fallido","error","simulado"].map((s) => <option key={s}>{s}</option>)}</select></label>
       <label>Desde<input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></label><label>Hasta<input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></label>
       <label className="search-filter">Producto<input type="search" placeholder="Nombre o código" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></label>
