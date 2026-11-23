@@ -8,6 +8,12 @@ describe("mensajeError", () => {
       .toBe("Ese código ya existe. Usa otro código o edita el producto existente.");
   });
 
+  it("indica enviar el borrador previo cuando el producto ya está pedido", () => {
+    const esperado = "Este producto ya está en un borrador de compra abierto. Ve a Órdenes y envía ese borrador antes de volver a solicitarlo.";
+    expect(mensajeError({ code: "P0001", message: "El producto PRO-1 ya está en el borrador OC-22. Envíalo o cancélalo antes de crear otro." })).toBe(esperado);
+    expect(mensajeError({ code: "P0001", message: "El producto ya pertenece a otro borrador de compra. Envía o cancela el borrador anterior antes de volver a pedirlo." })).toBe(esperado);
+  });
+
   it("sesión vencida", () => {
     const esperado = "Tu sesión expiró. Vuelve a iniciar sesión.";
     expect(mensajeError({ code: "PGRST301", message: "JWT expired" })).toBe(esperado);
