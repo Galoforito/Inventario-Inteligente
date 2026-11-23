@@ -561,6 +561,20 @@ describe("Importar movimientos", () => {
 });
 
 describe("Usuarios", () => {
+  it("limpia el formulario después de crear la cuenta sin leer currentTarget tras el await", async () => {
+    api.listarPerfiles.mockResolvedValue([]);
+    api.crearUsuario.mockResolvedValue({ user_id: "nuevo-usuario-1234" });
+    abrir("/usuarios");
+    const formulario = (await screen.findByRole("heading", { name: "Crear usuario" })).closest("form");
+    fireEvent.change(within(formulario).getByLabelText("Correo"), { target: { value: "compras@ejemplo.test" } });
+    fireEvent.change(within(formulario).getByLabelText(/Contraseña inicial/), { target: { value: "ClaveSegura123!" } });
+    fireEvent.click(within(formulario).getByRole("button", { name: "Crear cuenta" }));
+
+    expect(await screen.findByText("Usuario creado (nuevo-usuario-1234). Comparte la contraseña inicial que ingresaste por un canal seguro.")).toBeTruthy();
+    expect(within(formulario).getByLabelText("Correo").value).toBe("");
+    expect(within(formulario).getByLabelText(/Contraseña inicial/).value).toBe("");
+  });
+
   it("Guardar se habilita solo con cambios y envía rol y estado", async () => {
     api.listarPerfiles.mockResolvedValue([{ user_id: "48db03dc-b0ee-4ea9-a9cc-27b6688e4212", email: "becario@becario.com", role: "almacen", active: true }]);
     api.actualizarPerfil.mockResolvedValue({});
