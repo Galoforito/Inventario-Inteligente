@@ -94,4 +94,4 @@ Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna 
 - `0017`: RPC de orden rápida presente.
 - `0018`: catálogo persistente, valor predeterminado, trigger y política de lectura presentes.
 - `0019`: restricción de motivo global incluye `compra`.
-- El historial de Supabase aún no registra `0011`–`0019`; no ejecutar `supabase db push` hasta reconciliarlo con cuidado.
+- Se registraron `0012`–`0019` como aplicadas con `supabase migration repair` después de verificar sus efectos; el comando no ejecutó SQL. La `0011` sigue sin estar registrada y debe confirmarse por separado. No ejecutar `supabase db push` mientras esa brecha exista.
