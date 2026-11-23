@@ -3,7 +3,8 @@
 // errores juntos, con su número de fila, sin enviar nada.
 import { enteroNoNegativo } from "./validar.js";
 
-export const ENCABEZADOS_MOVIMIENTOS = ["codigo", "fecha", "tipo", "motivo", "cantidad"];
+export const ENCABEZADOS_MOVIMIENTOS = ["codigo", "fecha", "tipo", "motivo", "cantidad", "id_movimiento"];
+const ENCABEZADOS_BASE_MOVIMIENTOS = ENCABEZADOS_MOVIMIENTOS.slice(0, -1);
 export const MAXIMO_MOVIMIENTOS = 5000;
 
 export const MOTIVOS_POR_TIPO = {
@@ -68,7 +69,9 @@ export function limpiarMovimiento(datos, hoy = hoyLocal()) {
   }
   const cantidad = enteroNoNegativo(datos.cantidad, "cantidad");
   if (cantidad === 0) throw new Error("cantidad: debe ser mayor que cero.");
-  return { codigo, fecha, tipo, motivo, cantidad };
+  const id_movimiento = estaVacio(datos.id_movimiento) ? null : String(datos.id_movimiento).trim();
+  if (id_movimiento?.length > 200) throw new Error("id_movimiento: no puede superar 200 caracteres.");
+  return { codigo, fecha, tipo, motivo, cantidad, id_movimiento };
 }
 
 /**
@@ -79,9 +82,11 @@ export function limpiarMovimiento(datos, hoy = hoyLocal()) {
 export function validarMovimientos(filas, hoy = hoyLocal()) {
   const nombres = (filas[0] ?? []).map((celda) => normalizar(celda));
   while (nombres.length > 0 && nombres[nombres.length - 1] === "") nombres.pop();
-  const coincide = nombres.length === ENCABEZADOS_MOVIMIENTOS.length
-    && ENCABEZADOS_MOVIMIENTOS.every((nombre, i) => nombres[i] === nombre);
-  if (!coincide) throw new Error(`La primera fila debe contener: ${ENCABEZADOS_MOVIMIENTOS.join(", ")}.`);
+  const tieneId = nombres.length === ENCABEZADOS_MOVIMIENTOS.length
+    && nombres.at(-1) === "id_movimiento";
+  const coincide = (nombres.length === ENCABEZADOS_BASE_MOVIMIENTOS.length || tieneId)
+    && ENCABEZADOS_BASE_MOVIMIENTOS.every((nombre, i) => nombres[i] === nombre);
+  if (!coincide) throw new Error(`La primera fila debe contener: ${ENCABEZADOS_BASE_MOVIMIENTOS.join(", ")} y, opcionalmente, id_movimiento al final.`);
 
   const movimientos = [];
   const errores = [];
@@ -89,7 +94,8 @@ export function validarMovimientos(filas, hoy = hoyLocal()) {
     const fila = filas[i] ?? [];
     if (fila.every(estaVacio)) continue;
     try {
-      const datos = Object.fromEntries(ENCABEZADOS_MOVIMIENTOS.map((nombre, columna) => [nombre, fila[columna]]));
+      const datos = Object.fromEntries(ENCABEZADOS_BASE_MOVIMIENTOS.map((nombre, columna) => [nombre, fila[columna]]));
+      if (tieneId) datos.id_movimiento = fila[5];
       movimientos.push({ fila: i + 1, ...limpiarMovimiento(datos, hoy) });
     } catch (error) {
       errores.push(`Fila ${i + 1}: ${error.message}`);

@@ -73,3 +73,25 @@ Verificación registrada: `npm.cmd test` (166 pruebas) y `npm.cmd run build` com
 - Se elige el proveedor activo asignado con menor costo cotizado y se usa la cantidad sugerida, respetando el mínimo de unidades del producto.
 - La acción crea o reutiliza un borrador sin alerta asociada; si el producto no tiene proveedor activo, muestra el motivo.
 - La migración `0017_orden_rapida_producto_agotado.sql` valida permisos, existencia de stock cero y crea la línea del pedido.
+
+## Identificador estable en importación de movimientos
+
+- La plantilla de Excel incluye `id_movimiento` opcional al final. El ID debe ser estable en el sistema de origen y se interpreta junto con el SKU.
+- Con ID, los movimientos idénticos con IDs distintos se importan por separado; repetir el mismo SKU + ID omite la fila. Reutilizar ese par con otros datos produce error para evitar alterar el historial silenciosamente.
+- Los archivos antiguos sin la columna siguen funcionando y conservan la deduplicación por contenido y posición de filas idénticas. No agregues IDs retroactivos a filas ya importadas sin ID: no pueden asociarse con certeza a su registro previo.
+- La migración `0023_id_movimiento_importado.sql` agrega el campo e instala la lógica transaccional en la RPC.
+- Aplicación remota confirmada el 2026-11-23: migraciones `0021`, `0022` y `0023` ejecutadas y registradas en el historial de Supabase.
+## Auditoría SQL de migraciones antiguas
+
+Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna migración antigua.
+
+- `0011`: solo se ejecutó manualmente la definición de `crear_alerta_stock_bajo` (líneas 1–56); el archivo completo no se aplicó. No ejecutar el resto porque reemplazaría `crear_ordenes_desde_alerta` y reescribiría datos históricos. Su versión completa no está registrada.
+- `0012`: columnas snapshot obligatorias, FK con `ON DELETE SET NULL`, trigger de snapshots y funciones para enviar/recibir órdenes presentes.
+- `0013`: las cuatro políticas de proveedores presentes; el borrado está limitado a admin.
+- `0014`: restricciones entrada/salida y RPC de movimiento con motivo presentes.
+- `0015`: secuencia SKU, triggers de asignación/inmutabilidad y RPC de importación de productos presentes.
+- `0016`: RPC de órdenes usa mínimo por producto/proveedor y no aplica compra mínima del proveedor.
+- `0017`: RPC de orden rápida presente.
+- `0018`: catálogo persistente, valor predeterminado, trigger y política de lectura presentes.
+- `0019`: restricción de motivo global incluye `compra`.
+- Se registraron `0012`–`0019` como aplicadas con `supabase migration repair` después de verificar sus efectos; el comando no ejecutó SQL. `0011` permanece sin registrar por estar aplicada solo parcialmente. No ejecutar `supabase db push` mientras esa brecha exista.
