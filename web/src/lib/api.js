@@ -224,6 +224,10 @@ export async function recibirLineaOrden(lineaId, cantidad) {
   return revisar(await supabase.rpc("recibir_linea_orden", { p_linea_id: lineaId, p_cantidad: Number(cantidad) }));
 }
 
+export async function confirmarOrdenCompra(ordenId) {
+  return revisar(await supabase.rpc("confirmar_orden_compra", { p_orden_id: ordenId }));
+}
+
 export async function enviarOrdenProveedor(ordenId) {
   const { data, error } = await supabase.functions.invoke("revisar-inventario/ordenes/enviar", { body: { orden_id: ordenId } });
   if (error) throw new Error(mensajeError(error));

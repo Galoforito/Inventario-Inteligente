@@ -112,7 +112,9 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 
 ## 4. Requisitos pendientes del plan de entrega
 
-**Estado actualizado 2026-11-23:** la funcionalidad de proveedor único está implementada en la rama `feat/proveedor-unico-obligatorio` y cuenta con migración `0026_proveedor_unico_obligatorio.sql`. La rama aún requiere integración y aplicación controlada de la migración antes de considerarse disponible en producción. La auditoría previa encontró 101 productos sin proveedor activo; sus asignaciones deben completarse con información del equipo, desde las pantallas de Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
+**Ciclo de recepción actualizado 2026-11-23:** el flujo borrador → enviada → confirmada por Compras/admin → recepción por Almacén está implementado localmente en `feat/recepcion-orden-confirmada`, con migración `0027_confirmacion_antes_de_recepcion.sql`. Aún requiere integración, aplicación de migración y despliegue de la Edge Function. En modo demo el envío simulado cuenta como enviada, pero no como confirmada.
+
+**Estado actualizado 2026-11-23:** la funcionalidad de proveedor único está integrada en `main`; la migración `0026_proveedor_unico_obligatorio.sql` se aplicó y registró en Supabase remoto. Persisten 101 productos sin proveedor activo y deben asignarse con información del equipo, desde Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
 
 ### Proveedor asignado a cada producto
 

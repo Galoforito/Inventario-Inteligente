@@ -1,5 +1,13 @@
 # Cambios recientes
 
+## Confirmación del proveedor antes de recibir una orden — 2026-11-23
+
+- En la rama `feat/recepcion-orden-confirmada`, el ciclo queda como borrador → enviada → confirmada por Compras/admin → recepción por Almacén.
+- La interfaz oculta la recepción hasta que la orden esté confirmada, permite confirmar la aceptación del proveedor y explica la espera en órdenes enviadas.
+- La migración `0027_confirmacion_antes_de_recepcion.sql` agrega auditoría de confirmación, revoca actualizaciones directas de órdenes desde el cliente y valida el estado en la RPC antes de aumentar stock.
+- El envío simulado también deja la orden en `enviada`; sigue requiriendo confirmación manual antes de recibir.
+- Pruebas y build locales aprobados. Migración y Edge Function aún requieren integración y despliegue; no se han ejecutado en producción.
+
 ## Proveedor obligatorio y asignación desde Inventario — 2026-11-23
 
 - Se implementó en `feat/proveedor-unico-obligatorio` la selección obligatoria de proveedor activo al registrar productos y la asignación/cambio de proveedor desde Inventario y Proveedores.
@@ -7,7 +15,7 @@
 - Excel admite la columna opcional `proveedor`; las hojas anteriores siguen siendo válidas. Las filas nuevas deben nombrar un proveedor activo, mientras las filas existentes sin esa columna conservan la relación actual.
 - La migración `0026_proveedor_unico_obligatorio.sql` conserva la asociación activa cuando encuentra duplicados y quita enlaces sobrantes; no altera las órdenes ni sus líneas históricas.
 - La auditoría remota encontró 101 productos sin proveedor activo. Se requiere que el equipo indique esas relaciones; no se asignan proveedores por conjetura.
-- Validación local: **235 pruebas aprobadas** y `npm run build` correcto. La migración y la publicación de esta rama siguen pendientes.
+- Validación local: **235 pruebas aprobadas** y `npm run build` correcto. La migración 0026 se aplicó y registró en Supabase remoto el 2026-11-23; la asociación de proveedores para 101 productos existentes sigue pendiente de datos del equipo.
 
 ## Órdenes de compra para Consulta
 

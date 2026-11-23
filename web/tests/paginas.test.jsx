@@ -35,6 +35,7 @@ vi.mock("../src/lib/api.js", () => ({
   crearBorradores: vi.fn(),
   recibirLineaOrden: vi.fn(),
   enviarOrdenProveedor: vi.fn(),
+  confirmarOrdenCompra: vi.fn(),
   reportarEntregaIncompleta: vi.fn(),
   listarPerfiles: vi.fn(),
   actualizarPerfil: vi.fn(),
@@ -647,6 +648,51 @@ describe("Entrega incompleta", () => {
     abrir("/alertas");
     expect(await screen.findByRole("heading", { name: "Entrega incompleta de la orden OC-5" })).toBeTruthy();
     expect(screen.getByText(/pedidas 10, recibidas 6, faltan/)).toBeTruthy();
+  });
+});
+
+describe("Confirmación antes de recibir órdenes", () => {
+  const ORDEN_ENVIADA = {
+    id: 5, folio: "OC-5", estado: "enviada", sent_at: "2026-11-23T18:00:00Z", proveedor_id: 1, created_at: "2026-11-20T18:00:00Z",
+    proveedores: { nombre: "Papelera", correo: "ventas@papelera.test" },
+    orden_lineas: [{ id: 9, product_code: "P003", product_name: "Bolígrafo", cantidad: 10, recibida: 0, costo_unitario: 5 }],
+  };
+  const ORDEN_CONFIRMADA = { ...ORDEN_ENVIADA, estado: "confirmada", confirmada_at: "2026-11-23T19:00:00Z" };
+
+  it("Compras confirma una orden enviada y entonces aparece la recepción", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.listarOrdenes.mockResolvedValueOnce([ORDEN_ENVIADA]).mockResolvedValue([ORDEN_CONFIRMADA]);
+    api.confirmarOrdenCompra.mockResolvedValue(undefined);
+    const confirmarNativo = vi.spyOn(window, "confirm").mockReturnValue(true);
+    abrir("/ordenes");
+    const confirmar = await screen.findByRole("button", { name: "Confirmar pedido del proveedor" });
+    expect(screen.queryByRole("button", { name: "Registrar recepción" })).toBeNull();
+    fireEvent.click(confirmar);
+    expect(await screen.findByText(/quedó confirmada/)).toBeTruthy();
+    expect(api.confirmarOrdenCompra).toHaveBeenCalledWith(5);
+    expect(within(screen.getByRole("article")).getByText("confirmada")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Registrar recepción" })).toBeNull();
+    confirmarNativo.mockRestore();
+  });
+
+  it("Almacén puede recibir una orden confirmada", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "almacen", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN_CONFIRMADA]);
+    api.recibirLineaOrden.mockResolvedValue(14);
+    const promptNativo = vi.spyOn(window, "prompt").mockReturnValue("10");
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Registrar recepción" }));
+    await waitFor(() => expect(api.recibirLineaOrden).toHaveBeenCalledWith(9, 10));
+    promptNativo.mockRestore();
+  });
+
+  it("Almacén no puede recibir una orden solo enviada", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "almacen", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN_ENVIADA]);
+    abrir("/ordenes");
+    await screen.findByRole("heading", { name: /OC-5/ });
+    expect(screen.queryByRole("button", { name: "Registrar recepción" })).toBeNull();
+    expect(screen.getByText(/La recepción se habilita cuando Compras confirma/)).toBeTruthy();
   });
 });
 
