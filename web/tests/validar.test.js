@@ -69,10 +69,10 @@ describe("limpiarProducto", () => {
 
 describe("validarFilas", () => {
   it("convierte las filas en productos", () => {
-    expect(validarFilas([ENCABEZADOS, ["P001", "Cuaderno", "Papelería", 24, 8, 45], ["P002", "Lápiz", "Papelería", "40", "15", "$6.50"]]))
+    expect(validarFilas([ENCABEZADOS, ["P001", "Cuaderno", "Papelería", 24, 8, 45, "Proveedor A"], ["P002", "Lápiz", "Papelería", "40", "15", "$6.50", "Proveedor B"]]))
       .toEqual([
-        { codigo: "P001", nombre: "Cuaderno", categoria: "Papelería", stock_actual: 24, stock_minimo: 8, costo: 45 },
-        { codigo: "P002", nombre: "Lápiz", categoria: "Papelería", stock_actual: 40, stock_minimo: 15, costo: 6.5 },
+        { codigo: "P001", nombre: "Cuaderno", categoria: "Papelería", stock_actual: 24, stock_minimo: 8, costo: 45, proveedor: "Proveedor A" },
+        { codigo: "P002", nombre: "Lápiz", categoria: "Papelería", stock_actual: 40, stock_minimo: 15, costo: 6.5, proveedor: "Proveedor B" },
       ]);
   });
 
@@ -106,7 +106,7 @@ describe("validarFilas", () => {
   });
 
   it("rechaza un encabezado distinto", () => {
-    const esperado = "La primera fila debe contener: codigo, nombre, categoria, stock_actual, stock_minimo, costo (categoría y costo opcionales).";
+    const esperado = "La primera fila debe contener: codigo, nombre, categoria, stock_actual, stock_minimo, costo, proveedor (categoría, costo y proveedor opcionales en formatos anteriores).";
     expect(() => validarFilas([["nombre", "codigo", "categoria", "stock_actual", "stock_minimo", "costo"], ["A", "P1", "Otra", 1, 1, 1]])).toThrow(esperado);
     expect(() => validarFilas([["codigo", "nombre"], ["P1", "A"]])).toThrow(esperado);
     expect(() => validarFilas([])).toThrow(esperado);

@@ -112,6 +112,8 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 
 ## 4. Requisitos pendientes del plan de entrega
 
+**Estado actualizado 2026-11-23:** la funcionalidad de proveedor único está implementada en la rama `feat/proveedor-unico-obligatorio` y cuenta con migración `0026_proveedor_unico_obligatorio.sql`. La rama aún requiere integración y aplicación controlada de la migración antes de considerarse disponible en producción. La auditoría previa encontró 101 productos sin proveedor activo; sus asignaciones deben completarse con información del equipo, desde las pantallas de Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
+
 ### Proveedor asignado a cada producto
 
 - Limitar cada producto a exactamente un proveedor activo.

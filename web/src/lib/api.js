@@ -77,37 +77,57 @@ export async function consultarModoCorreo() {
 export async function cargarInventario() {
   // El consumo se calcula con las ventas (ventas_diarias_365d), no con consumo_30d,
   // que mezcla ventas con mermas y ajustes.
-  const [productos, ventas, resumen, categorias] = await Promise.all([
+  const [productos, ventas, resumen, categorias, relaciones, proveedores] = await Promise.all([
     supabase.from("products").select("*"),
     cargarVentasAnuales(),
     supabase.from("resumen_inventario").select("*").single(),
     supabase.from("categorias").select("nombre").order("nombre"),
+    supabase.from("proveedor_productos").select("product_id, proveedor_id, costo_unitario, minimo_unidades, proveedores(nombre, activo)"),
+    supabase.from("proveedores").select("id,nombre").eq("activo", true).order("nombre"),
   ]);
+  const listadoRelaciones = revisar(relaciones);
+  const porProducto = new Map();
+  for (const relacion of listadoRelaciones) {
+    const actual = porProducto.get(relacion.product_id);
+    if (!actual || (actual.proveedores?.activo === false && relacion.proveedores?.activo !== false)) {
+      porProducto.set(relacion.product_id, relacion);
+    }
+  }
   return {
-    productos: revisar(productos).sort(porNombre),
+    productos: revisar(productos).map((producto) => {
+      const relacion = porProducto.get(producto.id);
+      return {
+        ...producto,
+        proveedor_id: relacion?.proveedor_id ?? null,
+        proveedor: relacion?.proveedores?.activo === false ? null : relacion?.proveedores?.nombre ?? null,
+        proveedor_costo_unitario: relacion?.costo_unitario ?? null,
+        proveedor_minimo_unidades: relacion?.minimo_unidades ?? null,
+      };
+    }).sort(porNombre),
     ventas,
     resumen: revisar(resumen),
     // Si la migración 0018 aún no está aplicada, la tabla no existe: la pantalla
     // sigue funcionando con las categorías que ya usan los productos.
     categorias: categorias.error ? [] : categorias.data.map(({ nombre }) => nombre),
+    relaciones: listadoRelaciones,
+    proveedoresActivos: revisar(proveedores),
   };
 }
 
 /** Lo del Inventario más la relación producto-proveedor, para el Dashboard. */
 export async function cargarDashboard() {
-  const [inventario, relaciones] = await Promise.all([
-    cargarInventario(),
-    supabase.from("proveedor_productos").select("product_id, proveedor_id, costo_unitario, proveedores(nombre, activo)"),
-  ]);
-  return { ...inventario, relaciones: revisar(relaciones) };
+  return cargarInventario();
 }
 
 /** Crea un producto (id = null) o edita uno existente. */
 export async function guardarProducto(datos, id = null) {
   const producto = limpiarProducto(datos, { codigoObligatorio: false });
   if (id === null) {
-    revisar(await supabase.from("products").insert(producto));
-    return;
+    const proveedorId = Number(datos.proveedor_id);
+    if (!Number.isSafeInteger(proveedorId) || proveedorId <= 0) throw new Error("Selecciona un proveedor activo para el producto.");
+    return revisar(await supabase.rpc("crear_producto_con_proveedor", {
+      p_datos: producto, p_proveedor_id: proveedorId,
+    }));
   }
   const filas = revisar(await supabase.from("products").update(producto).eq("id", id).select("id"));
   if (filas.length === 0) throw new Error("El producto ya no existe.");
@@ -154,6 +174,15 @@ export async function listarProveedores() {
   return revisar(await supabase.from("proveedores").select("*").order("nombre"));
 }
 
+/** Lista productos con sus relaciones actuales para el panel de asignaciones. */
+export async function listarAsignacionesProductos() {
+  const [productos, relaciones] = await Promise.all([
+    supabase.from("products").select("id,codigo,nombre").order("nombre"),
+    supabase.from("proveedor_productos").select("product_id, proveedor_id, costo_unitario, minimo_unidades, proveedores(nombre, activo)"),
+  ]);
+  return { productos: revisar(productos), relaciones: revisar(relaciones) };
+}
+
 export async function guardarProveedor(proveedor, id = null) {
   if (id === null) return revisar(await supabase.from("proveedores").insert(proveedor).select().single());
   return revisar(await supabase.from("proveedores").update(proveedor).eq("id", id).select().single());
@@ -170,8 +199,9 @@ export async function eliminarProveedor(id) {
 }
 
 export async function vincularProductoProveedor(proveedorId, productId, costoUnitario, minimoUnidades) {
-  return revisar(await supabase.from("proveedor_productos").upsert({
-    proveedor_id: proveedorId, product_id: productId, costo_unitario: costoUnitario, minimo_unidades: minimoUnidades,
+  return revisar(await supabase.rpc("asignar_proveedor_producto", {
+    p_proveedor_id: proveedorId, p_producto_id: productId,
+    p_costo_unitario: costoUnitario, p_minimo_unidades: minimoUnidades,
   }));
 }
 

@@ -1,11 +1,13 @@
 // Validación de productos: la misma para el formulario y para el Excel.
 import { leerCosto } from "./dinero.js";
 
-export const ENCABEZADOS = ["codigo", "nombre", "categoria", "stock_actual", "stock_minimo", "costo"];
+export const ENCABEZADOS = ["codigo", "nombre", "categoria", "stock_actual", "stock_minimo", "costo", "proveedor"];
+export const ENCABEZADOS_SIN_PROVEEDOR = ENCABEZADOS.slice(0, 6);
 export const ENCABEZADOS_SIN_CATEGORIA = ["codigo", "nombre", "stock_actual", "stock_minimo", "costo"];
+export const ENCABEZADOS_SIN_CATEGORIA_CON_PROVEEDOR = [...ENCABEZADOS_SIN_CATEGORIA, "proveedor"];
 export const ENCABEZADOS_ANTIGUOS_SIN_CATEGORIA = ENCABEZADOS_SIN_CATEGORIA.slice(0, 4);
 // Se aceptan los formatos anteriores sin costo y ahora también sin categoría.
-export const ENCABEZADOS_VIEJOS = ENCABEZADOS.slice(0, 5);
+export const ENCABEZADOS_VIEJOS = ENCABEZADOS_SIN_PROVEEDOR.slice(0, 5);
 export const SIN_CATEGORIA = "Sin categoría";
 
 const TEXTO_MAXIMO = 120;
@@ -67,13 +69,21 @@ export function validarFilas(filas) {
   const nombres = (filas[0] ?? []).map((celda) => (estaVacio(celda) ? "" : String(celda).trim().toLowerCase()));
   while (nombres.length > 0 && nombres[nombres.length - 1] === "") nombres.pop();
 
-  const formatosAceptados = [ENCABEZADOS, ENCABEZADOS_VIEJOS, ENCABEZADOS_SIN_CATEGORIA, ENCABEZADOS_ANTIGUOS_SIN_CATEGORIA];
+  const formatosAceptados = [
+    ENCABEZADOS,
+    ENCABEZADOS_SIN_PROVEEDOR,
+    ENCABEZADOS_SIN_CATEGORIA_CON_PROVEEDOR,
+    ENCABEZADOS_VIEJOS,
+    ENCABEZADOS_SIN_CATEGORIA,
+    ENCABEZADOS_ANTIGUOS_SIN_CATEGORIA,
+  ];
   const formato = formatosAceptados.find((esperado) =>
     nombres.length === esperado.length && esperado.every((nombre, indice) => nombre === nombres[indice]));
   if (!formato) {
-    throw new Error(`La primera fila debe contener: ${ENCABEZADOS.join(", ")} (categoría y costo opcionales).`);
+    throw new Error(`La primera fila debe contener: ${ENCABEZADOS.join(", ")} (categoría, costo y proveedor opcionales en formatos anteriores).`);
   }
   const tieneCategoria = formato.includes("categoria");
+  const tieneProveedor = formato.includes("proveedor");
 
   const productos = [];
   const errores = [];
@@ -85,6 +95,10 @@ export function validarFilas(filas) {
       const datos = Object.fromEntries(nombres.map((nombre, columna) => [nombre, fila[columna]]));
       if (!tieneCategoria || estaVacio(datos.categoria)) datos.categoria = SIN_CATEGORIA;
       const producto = limpiarProducto(datos, { costoObligatorio: false });
+      if (tieneProveedor) {
+        producto.proveedor = estaVacio(datos.proveedor) ? null : String(datos.proveedor).trim();
+        if (producto.proveedor?.length > 160) throw new Error("proveedor: máximo 160 caracteres.");
+      }
       if (vistos.has(producto.codigo)) {
         throw new Error(`codigo: '${producto.codigo}' aparece más de una vez en el archivo.`);
       }
