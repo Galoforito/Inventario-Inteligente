@@ -107,7 +107,7 @@ En **Edge Functions → Secrets** agrega:
 | `SMTP_FROM` | La misma cuenta de Gmail |
 | `ALERT_TO` | El correo que recibe las alertas |
 | `DEMO_MODE` | `true` fuerza el modo simulado aunque SMTP esté configurado |
-| `APP_URL` | Origen de la aplicación, para incluir un enlace a la orden en los correos al proveedor |
+| `APP_URL` | Origen de la aplicación; se usa para enlazar órdenes en correos a proveedores y botones de reabastecimiento en alertas de stock |
 
 Para generar un `CRON_SECRET` en PowerShell:
 

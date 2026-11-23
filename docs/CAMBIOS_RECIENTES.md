@@ -12,6 +12,12 @@
 - El servidor vuelve a calcular la cobertura y valida el estado al ejecutar la RPC; un producto que ya dejó de requerir atención no genera una orden.
 - La migración `0025` se ejecutó y registró en el proyecto remoto `Inventario` el 2026-11-23. La RPC se verificó con SQL de solo lectura; no usar `db push` por la brecha parcial de `0011`.
 
+## Crear borradores desde correos de alerta
+
+- Las alertas de stock agregan un enlace por producto para crear un borrador desde el Dashboard. Al abrirlo con sesión de Admin o Compras, la app valida el producto mediante `crear_orden_rapida` y lleva a la orden creada.
+- El correo HTML y el texto plano incluyen las acciones; `APP_URL` es requerido para generar los enlaces.
+- La implementación está en `feat/orden-desde-alerta-stock`, apilada sobre `feat/orden-rapida-bajo-minimo`. Falta revisar, integrar, aplicar la migración `0025`, desplegar la Edge Function y verificar envío SMTP real.
+
 ## Integración de funcionalidades de entrega final — 2026-11-23
 
 - Las PR #2, #3, #4, #6 y #5 quedaron fusionadas en `main`, en ese orden de dependencias; la PR #6 se integró antes de #5 por la secuencia de migraciones.

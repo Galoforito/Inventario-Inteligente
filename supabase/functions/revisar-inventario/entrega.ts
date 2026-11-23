@@ -64,10 +64,25 @@ export async function entregarAlerta(deps: Deps, id: number): Promise<string> {
       const destinatario = alProveedor && alerta.recipient ? alerta.recipient : config.to;
       evidencia = { recipient: destinatario, deliveryStatus: "fallido" };
       if (alerta.tipo === "orden_compra" && !deps.env.APP_URL) throw new Error("Configura APP_URL para incluir el enlace de la orden al proveedor.");
-      const link = deps.env.APP_URL ? `${deps.env.APP_URL.replace(/\/$/, "")}/ordenes` : undefined;
+      if (alerta.tipo === "stock_bajo" && !deps.env.APP_URL) throw new Error("Configura APP_URL para incluir acciones de reabastecimiento en la alerta de stock.");
+      const appUrl = deps.env.APP_URL?.trim().replace(/\/$/, "");
+      const link = appUrl ? `${appUrl}/ordenes` : undefined;
+      const actionUrl = alerta.tipo === "stock_bajo" && appUrl ? new URL("/dashboard", appUrl).toString() : undefined;
+      const accionesTexto = alerta.tipo === "stock_bajo" && actionUrl && Array.isArray(alerta.items)
+        ? alerta.items.flatMap((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+          const producto = item as Record<string, unknown>;
+          const id = Number(producto.id);
+          if (!Number.isSafeInteger(id) || id <= 0) return [];
+          const url = new URL(actionUrl);
+          url.searchParams.set("crearOrden", String(id));
+          return [`• ${String(producto.codigo ?? "Producto")}: ${url.toString()}`];
+        }).join("\n")
+        : "";
+      const cuerpo = accionesTexto ? `${alerta.body}\n\nCrear borrador de reabastecimiento:\n${accionesTexto}` : alerta.body;
       // html queda sin valor si los datos guardados no sirven para el formato;
       // en ese caso el correo sale solo como texto.
-      const resultado = await deps.enviar({ ...config, to: destinatario }, { subject: alerta.subject, body: alerta.body, html: htmlCorreo({ ...alerta, link }) }) ?? { messageId: "", accepted: [] };
+      const resultado = await deps.enviar({ ...config, to: destinatario }, { subject: alerta.subject, body: cuerpo, html: htmlCorreo({ ...alerta, link, actionUrl }) }) ?? { messageId: "", accepted: [] };
       status = "enviado";
       evidencia = { messageId: resultado.messageId, recipient: destinatario, deliveryStatus: "enviado" };
     }

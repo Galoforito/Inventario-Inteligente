@@ -93,6 +93,19 @@ describe("htmlAlerta", () => {
     expect(html).not.toContain("$7,464.00");
   });
 
+  it("incluye una accion de borrador segura por producto en alertas de stock", () => {
+    const conAcciones = htmlAlerta({
+      items: [{ ...ITEMS[0], id: 21 }, { ...ITEMS[1], id: "<script>" }],
+      actionUrl: "https://inventario.example/dashboard?tab=stock",
+    });
+    expect(conAcciones).toContain('href="https://inventario.example/dashboard?tab=stock&amp;crearOrden=21"');
+    expect(conAcciones).toContain(">Crear borrador</a>");
+    expect(conAcciones).toContain(">—</td>");
+    const urlInsegura = htmlAlerta({ items: [{ ...ITEMS[0], id: 21 }], actionUrl: "javascript:alert(1)" });
+    expect(urlInsegura).not.toContain("javascript:");
+    expect(urlInsegura).not.toContain("Crear borrador");
+  });
+
   it("un nombre con HTML no rompe ni inyecta nada en el correo", () => {
     const peligroso = htmlAlerta({ items: [{ ...ITEMS[0], nombre: `<script>alert("x")</script>`, codigo: "A&B" }] });
     expect(peligroso).not.toContain("<script");

@@ -373,6 +373,24 @@ describe("Dashboard", () => {
     ...cambios,
   });
 
+  it("Compras crea un borrador al abrir el enlace de una alerta", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.cargarDashboard.mockResolvedValue(datosDashboard());
+    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-ALERTA", proveedor: "Papelera del Centro", cantidad: 4 });
+    api.listarOrdenes.mockResolvedValue([]);
+    abrir("/dashboard?crearOrden=3");
+    expect(await screen.findByRole("heading", { name: "Órdenes de compra" })).toBeTruthy();
+    expect(await screen.findByText(/Borrador OC-ALERTA listo para Papelera del Centro/)).toBeTruthy();
+    expect(api.crearOrdenRapida).toHaveBeenCalledWith(3, 4);
+  });
+
+  it("Consulta no puede crear un borrador desde un enlace de alerta", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "consulta", active: true });
+    api.cargarDashboard.mockResolvedValue(datosDashboard());
+    abrir("/dashboard?crearOrden=3");
+    expect(await screen.findByText("Solo Compras o Admin pueden crear borradores de compra desde una alerta.")).toBeTruthy();
+    expect(api.crearOrdenRapida).not.toHaveBeenCalled();
+  });
   it("muestra tarjetas, categorías y la tabla de atención", async () => {
     api.cargarDashboard.mockResolvedValue(datosDashboard());
     abrir("/dashboard");
@@ -514,6 +532,15 @@ describe("Entrega incompleta", () => {
     orden_lineas: [{ id: 9, product_code: "P003", product_name: "Bolígrafo", cantidad: 10, recibida: 6, costo_unitario: 5 }],
   };
 
+  it("Consulta puede leer órdenes sin ver controles de modificación", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "consulta", active: true });
+    api.listarOrdenes.mockResolvedValue([{ ...ORDEN_PARCIAL, estado: "borrador" }]);
+    abrir("/ordenes");
+    expect(await screen.findByRole("heading", { name: /OC-5 · Papelera/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Exportar a PDF" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Enviar al proveedor" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reportar entrega incompleta" })).toBeNull();
+  });
   it("Compras reporta el faltante desde la ventana de la app, con nota opcional", async () => {
     api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
     api.listarOrdenes.mockResolvedValue([ORDEN_PARCIAL]);

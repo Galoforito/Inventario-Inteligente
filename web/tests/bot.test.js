@@ -19,6 +19,7 @@ const COMPLETO = {
   SMTP_PASSWORD: "clave-de-aplicacion",
   SMTP_FROM: "equipo@escuela.mx",
   ALERT_TO: "almacen@escuela.mx",
+  APP_URL: "https://inventario.example",
 };
 
 const ALERTA = { id: 7, subject: "Alerta de inventario: 1 producto(s) con stock bajo", body: "Cuerpo del correo" };
@@ -118,7 +119,8 @@ describe("entregarAlerta", () => {
     expect(await entregarAlerta(deps, 8)).toBe("enviado");
     const correo = deps.enviar.mock.calls[0][1];
     expect(correo.subject).toBe(ALERTA.subject);
-    expect(correo.body).toBe("Cuerpo del correo");              // la versión de texto se conserva
+    expect(correo.body).toContain("Cuerpo del correo");
+    expect(correo.body).toContain("https://inventario.example/dashboard?crearOrden=1");              // la versión de texto se conserva
     expect(correo.html).toContain("Alerta de stock bajo");
     expect(correo.html).toContain(">Tóner</td>");
     expect(correo.html).toContain("$3,751.50");
