@@ -216,6 +216,7 @@ tbody tr:hover { background: #ffffff06; }
 .provider-table-head h3 { margin: 0; }
 .provider-table-head p { margin: 5px 0 0; color: var(--muted); }
 .provider-table-head label { min-width: 190px; }
+.provider-assignment-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 22px 16px; }
 .providers-table { min-width: 850px; }
 .providers-table th, .providers-table td { padding: 12px 14px; }
 .providers-table tbody tr:nth-child(even) { background: #ffffff04; }
@@ -226,6 +227,7 @@ tbody tr:hover { background: #ffffff06; }
   .provider-table-card { padding: 0; }
   .provider-table-head { align-items: stretch; padding: 16px; }
   .provider-table-head label { width: 100%; }
+  .provider-assignment-filters { grid-template-columns: 1fr 1fr; padding: 0 16px 16px; }
   .providers-table { min-width: 850px; }
 }
 

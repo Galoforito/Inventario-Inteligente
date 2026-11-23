@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Pagina from "../componentes/Pagina.jsx";
 import { eliminarProveedor, guardarProveedor, listarAsignacionesProductos, listarProveedores, vincularProductoProveedor } from "../lib/api.js";
 import { usePerfil } from "../lib/perfil.jsx";
@@ -16,6 +16,10 @@ export default function Proveedores() {
   const [minimoUnidades, setMinimoUnidades] = useState("1");
   const [proveedorEditando, setProveedorEditando] = useState(null);
   const [vista, setVista] = useState("activos");
+  const [buscarAsignacion, setBuscarAsignacion] = useState("");
+  const [filtrarAsignacion, setFiltrarAsignacion] = useState("");
+  const [filtrarProveedorAsignacion, setFiltrarProveedorAsignacion] = useState("");
+  const [ordenAsignacion, setOrdenAsignacion] = useState("producto_asc");
   const [ocupado, setOcupado] = useState(false);
   const [accionId, setAccionId] = useState(null);
   const asignarRef = useRef(null);
@@ -30,6 +34,39 @@ export default function Proveedores() {
     }
   }
   const sinProveedor = productos.filter((p) => asignaciones.get(p.id)?.proveedores?.activo !== true);
+  const proveedoresAsignados = useMemo(() => [...new Map(relaciones.map((r) => [String(r.proveedor_id), r.proveedores?.nombre ?? "Proveedor"])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], "es")), [relaciones]);
+  const asignacionesVisibles = useMemo(() => {
+    const consulta = buscarAsignacion.trim().toLocaleLowerCase("es");
+    return productos.map((producto) => {
+      const relacion = asignaciones.get(producto.id);
+      const activo = relacion?.proveedores?.activo === true;
+      return { producto, relacion, activo };
+    }).filter(({ producto, relacion, activo }) => {
+      const texto = [producto.codigo, producto.nombre, relacion?.proveedores?.nombre].filter(Boolean).join(" ").toLocaleLowerCase("es");
+      return (!consulta || texto.includes(consulta))
+        && (!filtrarAsignacion || (filtrarAsignacion === "asignado" ? activo : !activo))
+        && (!filtrarProveedorAsignacion || (filtrarProveedorAsignacion === "sin-proveedor" ? !activo : String(relacion?.proveedor_id) === filtrarProveedorAsignacion && activo));
+    }).sort((a, b) => {
+      if (ordenAsignacion.startsWith("producto")) {
+        const cmp = a.producto.nombre.localeCompare(b.producto.nombre, "es", { sensitivity: "base" }) || a.producto.codigo.localeCompare(b.producto.codigo, "es");
+        return ordenAsignacion === "producto_asc" ? cmp : -cmp;
+      }
+      if (ordenAsignacion.startsWith("proveedor")) {
+        const nombreA = a.activo ? a.relacion.proveedores.nombre : "";
+        const nombreB = b.activo ? b.relacion.proveedores.nombre : "";
+        const cmp = nombreA.localeCompare(nombreB, "es", { sensitivity: "base" }) || a.producto.nombre.localeCompare(b.producto.nombre, "es");
+        return ordenAsignacion === "proveedor_asc" ? cmp : -cmp;
+      }
+      const sinMinimoA = a.relacion?.minimo_unidades == null;
+      const sinMinimoB = b.relacion?.minimo_unidades == null;
+      if (sinMinimoA !== sinMinimoB) return sinMinimoA ? 1 : -1;
+      const minimoA = Number(a.relacion?.minimo_unidades ?? Number.POSITIVE_INFINITY);
+      const minimoB = Number(b.relacion?.minimo_unidades ?? Number.POSITIVE_INFINITY);
+      const cmp = minimoA - minimoB || a.producto.nombre.localeCompare(b.producto.nombre, "es");
+      return ordenAsignacion === "minimo_asc" ? cmp : -cmp;
+    });
+  }, [productos, relaciones, buscarAsignacion, filtrarAsignacion, filtrarProveedorAsignacion, ordenAsignacion]);
 
   async function cargar() {
     const [proveedores, catalogo] = await Promise.all([
@@ -207,23 +244,38 @@ export default function Proveedores() {
     </section>
     <section className="card provider-table-card">
       <div className="provider-table-head">
-        <div><h3>Proveedor asignado por producto</h3><p>La orden rápida requiere un proveedor activo asignado.</p></div>
+        <div><h3>Proveedor asignado por producto</h3><p>La orden rápida requiere un proveedor activo asignado. “Mínimo de unidades” es la cantidad mínima sugerida para ordenar este producto con su proveedor.</p></div>
         <span>{productos.length - sinProveedor.length} asignados - {sinProveedor.length} pendientes</span>
       </div>
       {productos.length === 0 ? <p className="provider-empty">No hay productos registrados.</p>
-        : <div className="table-scroll"><table className="providers-table">
-          <thead><tr><th>Producto</th><th>Proveedor actual</th><th>Estado</th>{puedeGestionar && <th>Acciones</th>}</tr></thead>
-          <tbody>{productos.map((p) => {
-            const relacion = asignaciones.get(p.id);
-            const activo = relacion?.proveedores?.activo === true;
+        : <>
+          <div className="provider-assignment-filters" aria-label="Filtros de proveedor asignado por producto">
+            <label>Buscar producto o proveedor<input type="search" aria-label="Buscar producto o proveedor" value={buscarAsignacion} onChange={(e) => setBuscarAsignacion(e.target.value)} placeholder="Nombre o código SKU" /></label>
+            <label>Asignación<select aria-label="Filtrar por asignación" value={filtrarAsignacion} onChange={(e) => setFiltrarAsignacion(e.target.value)}>
+              <option value="">Todos</option><option value="asignado">Con proveedor activo</option><option value="pendiente">Sin proveedor activo</option>
+            </select></label>
+            <label>Proveedor<select aria-label="Filtrar por proveedor asignado" value={filtrarProveedorAsignacion} onChange={(e) => setFiltrarProveedorAsignacion(e.target.value)}>
+              <option value="">Todos</option><option value="sin-proveedor">Sin proveedor activo</option>{proveedoresAsignados.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}
+            </select></label>
+            <label>Ordenar por<select aria-label="Ordenar asignaciones" value={ordenAsignacion} onChange={(e) => setOrdenAsignacion(e.target.value)}>
+              <option value="producto_asc">Producto: A–Z</option><option value="producto_desc">Producto: Z–A</option>
+              <option value="proveedor_asc">Proveedor: A–Z</option><option value="proveedor_desc">Proveedor: Z–A</option>
+              <option value="minimo_asc">Mínimo de unidades: menor a mayor</option><option value="minimo_desc">Mínimo de unidades: mayor a menor</option>
+            </select></label>
+          </div>
+          {asignacionesVisibles.length === 0 ? <p className="provider-empty">Ningún producto coincide con los filtros.</p> : <div className="table-scroll"><table className="providers-table">
+          <thead><tr><th>Producto</th><th>Proveedor actual</th><th>Mínimo de unidades</th><th>Estado</th>{puedeGestionar && <th>Acciones</th>}</tr></thead>
+          <tbody>{asignacionesVisibles.map(({ producto: p, relacion, activo }) => {
             return <tr key={p.id}>
               <td data-etiqueta="Producto"><strong>{p.nombre}</strong><small className="sub">{p.codigo}</small></td>
               <td data-etiqueta="Proveedor actual">{activo ? relacion.proveedores.nombre : <span className="muted">Sin proveedor activo</span>}</td>
+              <td data-etiqueta="Mínimo de unidades">{relacion?.minimo_unidades ?? "—"}</td>
               <td data-etiqueta="Estado"><span className={`badge ${activo ? "ok" : "warn"}`}>{activo ? "Asignado" : "Pendiente"}</span></td>
               {puedeGestionar && <td data-etiqueta="Acciones"><button type="button" onClick={() => seleccionarProducto(p)}>{activo ? "Cambiar" : "Asignar"}</button></td>}
             </tr>;
           })}</tbody>
         </table></div>}
+        </>}
     </section>
   </Pagina>;
 }

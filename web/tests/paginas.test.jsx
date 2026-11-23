@@ -591,6 +591,44 @@ describe("Usuarios", () => {
   });
 });
 
+describe("Asignaciones de proveedores", () => {
+  it("muestra mínimo de unidades y permite buscar, filtrar y ordenar la tabla", async () => {
+    api.listarProveedores.mockResolvedValue([
+      { id: 1, nombre: "Proveedor Uno", correo: "uno@ejemplo.test", activo: true, lead_time_dias: 5 },
+      { id: 2, nombre: "Proveedor Dos", correo: "dos@ejemplo.test", activo: true, lead_time_dias: 7 },
+    ]);
+    api.listarAsignacionesProductos.mockResolvedValue({
+      productos: [
+        { id: 1, codigo: "P001", nombre: "Lápiz" },
+        { id: 2, codigo: "P002", nombre: "Cuaderno" },
+        { id: 3, codigo: "P003", nombre: "Grapadora" },
+      ],
+      relaciones: [
+        { product_id: 1, proveedor_id: 1, minimo_unidades: 3, proveedores: { nombre: "Proveedor Uno", activo: true } },
+        { product_id: 2, proveedor_id: 2, minimo_unidades: 1, proveedores: { nombre: "Proveedor Dos", activo: true } },
+      ],
+    });
+    abrir("/proveedores");
+    const seccion = (await screen.findByRole("heading", { name: "Proveedor asignado por producto" })).closest("section");
+    const filas = () => within(seccion).getAllByRole("row").slice(1);
+    expect(within(seccion).getByText("Mínimo de unidades")).toBeTruthy();
+    expect(within(seccion).getByText("3", { selector: "td" })).toBeTruthy();
+    expect(within(seccion).getByText("1", { selector: "td" })).toBeTruthy();
+    expect(filas()).toHaveLength(3);
+
+    fireEvent.change(within(seccion).getByLabelText("Buscar producto o proveedor"), { target: { value: "P002" } });
+    expect(filas().map((fila) => fila.textContent)).toEqual([expect.stringContaining("Cuaderno")]);
+    fireEvent.change(within(seccion).getByLabelText("Buscar producto o proveedor"), { target: { value: "" } });
+    fireEvent.change(within(seccion).getByLabelText("Filtrar por asignación"), { target: { value: "pendiente" } });
+    expect(filas().map((fila) => fila.textContent)).toEqual([expect.stringContaining("Grapadora")]);
+    fireEvent.change(within(seccion).getByLabelText("Filtrar por asignación"), { target: { value: "" } });
+    fireEvent.change(within(seccion).getByLabelText("Ordenar asignaciones"), { target: { value: "minimo_desc" } });
+    expect(filas().map((fila) => fila.textContent)).toEqual([
+      expect.stringContaining("Lápiz"), expect.stringContaining("Cuaderno"), expect.stringContaining("Grapadora"),
+    ]);
+  });
+});
+
 describe("Entrega incompleta", () => {
   const ORDEN_PARCIAL = {
     id: 5, folio: "OC-5", estado: "recibida parcial", proveedor_id: 1, created_at: "2026-11-20T18:00:00Z", incompleta_alert_id: null,
