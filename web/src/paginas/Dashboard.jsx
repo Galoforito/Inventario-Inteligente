@@ -198,9 +198,7 @@ export default function Dashboard() {
                       <td data-etiqueta="Orden" className="nowrap">
                         {!puedeOrdenar ? <span className="muted">Solo lectura</span>
                           : !p.proveedor ? <Link to="/proveedores">Asignar</Link>
-                            : Number(p.stock_actual) === 0
-                              ? <button type="button" className="primary small" disabled={ocupado} onClick={() => armarOrden(p)}>Armar orden</button>
-                              : <Link to="/alertas">Desde alertas</Link>}
+                            : <button type="button" className="primary small" disabled={ocupado} onClick={() => armarOrden(p)}>Armar orden</button>}
                       </td>
                     </tr>
                   ))}
