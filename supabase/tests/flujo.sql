@@ -657,6 +657,73 @@ begin
     'T48: la orden conserva el costo de compra del catálogo y no la cotización desactualizada';
 end $$;
 
+-- T49: el pedido múltiple agrupa por proveedor y bloquea un segundo borrador
+-- del mismo producto mientras el primero siga abierto.
+do $$
+declare
+  v_a bigint; v_b bigint; v_proveedor bigint; v_orden bigint; v_otro bigint;
+  v_resultado jsonb;
+begin
+  perform pg_temp.limpiar();
+  insert into products(codigo,nombre,categoria,stock_actual,stock_minimo,costo)
+    values ('OC49A','Switch A','Electrónica',0,2,100), ('OC49B','Switch B','Electrónica',0,3,200);
+  select id into v_a from products where codigo='OC49A';
+  select id into v_b from products where codigo='OC49B';
+  insert into proveedores(nombre,correo) values ('Proveedor común T49','t49@example.invalid') returning id into v_proveedor;
+  insert into proveedor_productos(proveedor_id,product_id,costo_unitario,minimo_unidades)
+    values (v_proveedor,v_a,100,1),(v_proveedor,v_b,200,1);
+
+  v_resultado := crear_ordenes_agrupadas(jsonb_build_array(
+    jsonb_build_object('producto_id',v_a,'cantidad',2),
+    jsonb_build_object('producto_id',v_b,'cantidad',3)
+  ));
+  assert (v_resultado->>'total_ordenes')::integer = 1, 'T49: dos productos del mismo proveedor crean un borrador';
+  assert (v_resultado->>'total_productos')::integer = 2, 'T49: la operación informa los dos productos';
+  select orden_id into v_orden from orden_lineas where product_id=v_a;
+  assert (select count(*) from orden_lineas where orden_id=v_orden and product_id in (v_a,v_b)) = 2,
+    'T49: ambas líneas están agrupadas en la misma orden';
+
+  begin
+    perform crear_orden_rapida(v_a,2);
+    assert false, 'T49: se esperaba bloquear el producto ya solicitado';
+  exception when raise_exception then null;
+  end;
+
+  insert into ordenes_compra(folio,proveedor_id,estado) values ('OC-T49-DUPLICADA',v_proveedor,'borrador') returning id into v_otro;
+  begin
+    insert into orden_lineas(orden_id,product_id,cantidad,costo_unitario) values (v_otro,v_a,2,100);
+    assert false, 'T49: el trigger debía bloquear un segundo borrador';
+  exception when raise_exception then null;
+  end;
+end $$;
+
+-- T50: dos acciones rápidas sucesivas del mismo proveedor reutilizan el
+-- borrador común; repetir el mismo producto no crea una segunda orden.
+do $$
+declare
+  v_c bigint; v_d bigint; v_proveedor bigint; v_orden_c bigint; v_orden_d bigint;
+begin
+  perform pg_temp.limpiar();
+  insert into products(codigo,nombre,categoria,stock_actual,stock_minimo,costo)
+    values ('OC50A','Switch C','Electrónica',0,1,100), ('OC50B','Switch D','Electrónica',0,1,200);
+  select id into v_c from products where codigo='OC50A';
+  select id into v_d from products where codigo='OC50B';
+  insert into proveedores(nombre,correo) values ('Proveedor común T50','t50@example.invalid') returning id into v_proveedor;
+  insert into proveedor_productos(proveedor_id,product_id,costo_unitario,minimo_unidades)
+    values (v_proveedor,v_c,100,1),(v_proveedor,v_d,200,1);
+
+  v_orden_c := (crear_orden_rapida(v_c,1)->>'id')::bigint;
+  v_orden_d := (crear_orden_rapida(v_d,1)->>'id')::bigint;
+  assert v_orden_c = v_orden_d, 'T50: ambas acciones usan el mismo borrador del proveedor';
+  assert (select count(*) from orden_lineas where orden_id=v_orden_c) = 2, 'T50: ambas acciones añaden una línea distinta';
+
+  begin
+    perform crear_orden_rapida(v_c,1);
+    assert false, 'T50: no debe crear un segundo borrador para el producto';
+  exception when raise_exception then null;
+  end;
+end $$;
+
 -- ---------------------------------------------------------------------------
 select 'TODAS LAS PRUEBAS PASARON' as resultado;
 rollback;

@@ -3,11 +3,20 @@
 ## Cierre de desarrollo y producción — 2026-11-23
 
 - Las PR #11 (proveedor único) y #12 (confirmación antes de recepción) están fusionadas en `main`; Vercel reportó producción lista para ambas.
+- Las PR #14 y #15 también están fusionadas: se corrigió el reset del formulario de usuarios y se añadieron filtros, ordenamiento y mínimo visible a la tabla de asignaciones.
 - Las migraciones `0026` y `0027` se ejecutaron con `supabase db query`, se verificaron por SQL y quedaron registradas con `supabase migration repair`. `0011` sigue parcialmente aplicada; no ejecutar `db push`.
 - La Edge Function `revisar-inventario` está activa en Supabase, versión 15. `APP_URL` y secretos SMTP aparecen configurados; no se incluyen sus valores.
 - Se encontraron nueve alertas internas `stock_bajo` con estado SMTP `enviado` e IDs distintos; tres ejemplos redactados están en `docs/EVIDENCIA_ALERTAS.md`.
-- Verificación combinada del frontend: **238 pruebas aprobadas** y `npm run build` correcto. El backtest sintético reproducible evaluó 18 productos y 90 ventanas; resultados en `docs/EVALUACION_PRONOSTICO.md`.
+- Verificación combinada del frontend: **241 pruebas aprobadas** y `npm run build` correcto. El backtest sintético reproducible evaluó 18 productos y 90 ventanas; resultados en `docs/EVALUACION_PRONOSTICO.md`.
 - Pendientes de información/aceptación: asignar proveedor real a 101 productos existentes; validar `compras` y `consulta` con cuentas activas (remoto solo muestra perfiles `admin` y `almacen`); sustituir los datos fiscales ficticios de `web/src/lib/negocio.js` por los reales antes de usar el PDF en negocio.
+
+## Órdenes agrupadas por proveedor y sin borradores duplicados — 2026-11-23
+
+- Dashboard permite seleccionar varios productos críticos/de atención y crear borradores agrupados: una orden por proveedor, con varias líneas del mismo proveedor.
+- La RPC `crear_ordenes_agrupadas` es atómica; las acciones rápidas secuenciales reutilizan el borrador del proveedor.
+- La migración `0028_ordenes_agrupadas_y_borrador_unico.sql` agrega una protección de base para impedir que un producto aparezca en más de un borrador abierto. Si ya está en borrador, se debe enviar o cancelar antes de volver a pedirlo.
+- `0028` se probó en una transacción reversible, se aplicó con `supabase db query` y quedó registrada con `supabase migration repair`. La verificación posterior encontró cero duplicados de producto en borradores existentes.
+- Se añadieron pruebas de interfaz y SQL para selección múltiple, agrupación y bloqueo de borradores repetidos; el build y las 241 pruebas web pasan.
 
 ## Confirmación del proveedor antes de recibir una orden — 2026-11-23
 
