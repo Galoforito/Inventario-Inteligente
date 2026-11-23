@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Pagina from "../componentes/Pagina.jsx";
 import { actualizarCantidadLinea, cerrarOrdenIncompleta, confirmarOrdenCompra, enviarOrdenProveedor, listarOrdenes, recibirLineaOrden, reportarEntregaIncompleta } from "../lib/api.js";
-import { errorCantidad, minimoParaStock } from "../lib/compras.js";
+import { errorCantidad, minimoCompra } from "../lib/compras.js";
 import { fechaLocal } from "../lib/fechas.js";
 import { dinero } from "../lib/dinero.js";
 import { usePerfil } from "../lib/perfil.jsx";
@@ -11,8 +11,13 @@ import { htmlOrden, totalOrden } from "../lib/orden-pdf.js";
 import Modal from "../componentes/Modal.jsx";
 
 // Ventana para cambiar la cantidad de una línea mientras la orden es borrador.
-function CambiarCantidad({ linea, ocupado, onGuardar, onCerrar }) {
-  const producto = { stock_actual: linea.products?.stock_actual ?? 0, stock_minimo: linea.products?.stock_minimo ?? 0 };
+function CambiarCantidad({ linea, proveedorId, ocupado, onGuardar, onCerrar }) {
+  const asignacion = linea.products?.proveedor_productos?.find((r) => Number(r.proveedor_id) === Number(proveedorId));
+  const producto = {
+    stock_actual: linea.products?.stock_actual ?? 0,
+    stock_minimo: linea.products?.stock_minimo ?? 0,
+    proveedor_minimo_unidades: asignacion?.minimo_unidades ?? 1,
+  };
   const [texto, setTexto] = useState(String(linea.cantidad));
   const error = errorCantidad(producto, texto);
   const codigo = linea.product_code ?? linea.products?.codigo;
@@ -25,9 +30,9 @@ function CambiarCantidad({ linea, ocupado, onGuardar, onCerrar }) {
         </button>
       </>}>
       <p><span className="mono">{codigo}</span> · {linea.product_name ?? linea.products?.nombre}</p>
-      {linea.products && <p className="muted">Stock {producto.stock_actual} / mínimo {producto.stock_minimo}. No se puede pedir menos de <strong>{minimoParaStock(producto)}</strong>.</p>}
+      {linea.products && <p className="muted">Stock {producto.stock_actual} / mínimo {producto.stock_minimo}. No se puede pedir menos de <strong>{minimoCompra(producto)}</strong> unidades (mínimo de stock o de venta del proveedor).</p>}
       <label>Unidades a comprar
-        <input type="number" min={minimoParaStock(producto)} step="1" inputMode="numeric" data-autofocus value={texto}
+        <input type="number" min={minimoCompra(producto)} step="1" inputMode="numeric" data-autofocus value={texto}
           aria-invalid={Boolean(error)} disabled={ocupado} onChange={(e) => setTexto(e.target.value)} />
       </label>
       {error && <small className="campo-error" role="alert">{error}</small>}
@@ -300,11 +305,11 @@ export default function Ordenes() {
         {o.cerrada_at && <span className="muted"> · {fechaLocal(o.cerrada_at)}</span>}{o.cierre_nota && <span> · {o.cierre_nota}</span>}</p>}
       {o.estado === "enviada" && <p className="muted">La recepción se habilita cuando Compras confirma que el proveedor aceptó la orden.</p>}
       <ul>{o.orden_lineas?.map((l) => <li key={l.id}>{l.product_code ?? l.products?.codigo} · {l.product_name ?? l.products?.nombre}: {l.recibida}/{l.cantidad} unidades
-        {puedeComprar && o.estado === "borrador" && <button type="button" onClick={() => setEditandoLinea(l)}>Cambiar cantidad</button>}
+        {puedeComprar && o.estado === "borrador" && <button type="button" onClick={() => setEditandoLinea({ linea: l, proveedorId: o.proveedor_id })}>Cambiar cantidad</button>}
         {(perfil.role === "admin" || perfil.role === "almacen") && ["confirmada", "recibida parcial"].includes(o.estado) && l.recibida < l.cantidad && <button type="button" onClick={() => recibir(l)}>Registrar recepción</button>}</li>)}</ul>
     </article>)}</div>
     {reportando && <ReporteFaltante orden={reportando} ocupado={enviandoReporte} onEnviar={reportarFaltante} onCerrar={cerrarReporte} />}
-    {editandoLinea && <CambiarCantidad linea={editandoLinea} ocupado={guardando} onGuardar={guardarCantidad} onCerrar={cerrarEdicion} />}
+    {editandoLinea && <CambiarCantidad linea={editandoLinea.linea} proveedorId={editandoLinea.proveedorId} ocupado={guardando} onGuardar={guardarCantidad} onCerrar={cerrarEdicion} />}
     {cierre && <CierreIncompleta orden={cierre.orden} tipo={cierre.tipo} ocupado={guardando} onConfirmar={cerrarIncompleta} onCerrar={cerrarCierre} />}
   </Pagina>;
 }

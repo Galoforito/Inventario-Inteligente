@@ -180,7 +180,7 @@ Pendientes funcionales y de aceptación tras integrar las PR #2–#9:
 ### Elegir la cantidad al comprar
 - "Armar orden" (Dashboard, Reabastecer primero de Inventario y el enlace del correo de alerta) y "Crear borradores agrupados" abren una ventana para elegir cuántas unidades pedir de cada producto.
 - Se propone la cantidad sugerida. **No se puede pedir menos de lo que falta para llegar al stock mínimo** (stock mínimo − stock actual, al menos 1), ni menos de lo que vende como mínimo el proveedor. La base aplica la misma regla en `crear_ordenes_agrupadas`.
-- Mientras la orden es **borrador**, cada línea tiene "Cambiar cantidad" con la misma regla (`actualizar_cantidad_linea_borrador`). Cubre también los borradores creados desde Historial de alertas.
+- Mientras la orden es **borrador**, cada línea tiene "Cambiar cantidad" con la misma regla (`actualizar_cantidad_linea_borrador`). La ventana obtiene el mínimo de unidades de la asignación producto-proveedor y lo valida antes de guardar; la base vuelve a aplicar ambas reglas. Cubre también los borradores creados desde Historial de alertas.
 - Reglas en `web/src/lib/compras.js`; ventana en `web/src/componentes/CantidadCompra.jsx`.
 
 ### Buscar al elegir producto y proveedor
@@ -197,4 +197,4 @@ Después de "Reportar entrega incompleta", Compras/Admin tienen tres salidas:
 - Base: función `cerrar_orden_incompleta`, columnas `cierre_tipo`, `cierre_nota`, `cerrada_at` y nuevo estado `cerrada incompleta`.
 - "Registrar recepción" ya no aparece en líneas recibidas por completo.
 
-Pruebas: 251/251 (9 nuevas). Build correcto.
+Pruebas web: 252/252; incluyen validación del mínimo de stock y del proveedor al cambiar la cantidad de un borrador. Build correcto. La prueba SQL `T51` cubre el rechazo y aceptación de cantidades al cambiar un borrador; requiere aplicar la migración 0029 antes de ejecutar `supabase/tests/flujo.sql`.

@@ -859,7 +859,8 @@ describe("Cantidad, búsqueda y cierre de órdenes", () => {
     id: 7, folio: "OC-7", estado: "recibida parcial", proveedor_id: 1, created_at: "2026-11-20T18:00:00Z", incompleta_alert_id: 40,
     proveedores: { nombre: "Papelera", correo: "ventas@papelera.test" },
     orden_lineas: [{ id: 9, product_code: "P003", product_name: "Bolígrafo", cantidad: 10, recibida: 6, costo_unitario: 5,
-      products: { codigo: "P003", nombre: "Bolígrafo", stock_actual: 7, stock_minimo: 12 } }],
+      products: { codigo: "P003", nombre: "Bolígrafo", stock_actual: 7, stock_minimo: 12,
+        proveedor_productos: [{ proveedor_id: 1, minimo_unidades: 1 }] } }],
     ...cambios,
   });
 
@@ -876,6 +877,22 @@ describe("Cantidad, búsqueda y cierre de órdenes", () => {
     fireEvent.change(campo, { target: { value: "20" } });
     fireEvent.click(within(ventana).getByRole("button", { name: "Guardar cantidad" }));
     await waitFor(() => expect(api.actualizarCantidadLinea).toHaveBeenCalledWith(9, 20));
+  });
+
+  it("al editar un borrador también valida el mínimo de venta del proveedor", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    const linea = ORDEN().orden_lineas[0];
+    api.listarOrdenes.mockResolvedValue([ORDEN({ estado: "borrador", incompleta_alert_id: null, orden_lineas: [{
+      ...linea,
+      products: { ...linea.products, proveedor_productos: [{ proveedor_id: 1, minimo_unidades: 8 }] },
+    }] })]);
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Cambiar cantidad" }));
+    const ventana = screen.getByRole("dialog", { name: "Cambiar cantidad" });
+    const campo = within(ventana).getByLabelText("Unidades a comprar");
+    fireEvent.change(campo, { target: { value: "7" } });
+    expect(within(ventana).getByRole("alert").textContent).toMatch(/Mínimo 8: es lo menos que vende el proveedor/);
+    expect(within(ventana).getByRole("button", { name: "Guardar cantidad" }).disabled).toBe(true);
   });
 
   it("tras reclamar el faltante: recibir, cancelar faltante o devolver", async () => {

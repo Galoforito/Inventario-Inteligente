@@ -206,7 +206,7 @@ export async function vincularProductoProveedor(proveedorId, productId, costoUni
 }
 
 export async function listarOrdenes() {
-  return revisar(await supabase.from("ordenes_compra").select("*, proveedores(nombre, correo, telefono, lead_time_dias), orden_lineas(*, products(codigo,nombre,stock_actual,stock_minimo))").order("created_at", { ascending: false }));
+  return revisar(await supabase.from("ordenes_compra").select("*, proveedores(nombre, correo, telefono, lead_time_dias), orden_lineas(*, products(codigo,nombre,stock_actual,stock_minimo, proveedor_productos(proveedor_id,minimo_unidades)))").order("created_at", { ascending: false }));
 }
 
 export async function crearBorradores(alertaId) {
