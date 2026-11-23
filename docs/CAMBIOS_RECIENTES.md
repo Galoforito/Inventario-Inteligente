@@ -80,3 +80,4 @@ Verificación registrada: `npm.cmd test` (166 pruebas) y `npm.cmd run build` com
 - Con ID, los movimientos idénticos con IDs distintos se importan por separado; repetir el mismo SKU + ID omite la fila. Reutilizar ese par con otros datos produce error para evitar alterar el historial silenciosamente.
 - Los archivos antiguos sin la columna siguen funcionando y conservan la deduplicación por contenido y posición de filas idénticas. No agregues IDs retroactivos a filas ya importadas sin ID: no pueden asociarse con certeza a su registro previo.
 - La migración `0023_id_movimiento_importado.sql` agrega el campo e instala la lógica transaccional en la RPC.
+- Aplicación remota confirmada el 2026-11-23: migraciones `0021`, `0022` y `0023` ejecutadas y registradas en el historial de Supabase.
