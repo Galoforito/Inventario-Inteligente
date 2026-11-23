@@ -11,6 +11,7 @@
 - La migración `0025_orden_rapida_atencion.sql` amplía el borrador rápido a productos con stock disponible si están bajo mínimo o su cobertura calculada con ventas de 30 días es de hasta 14 días.
 - El servidor vuelve a calcular la cobertura y valida el estado al ejecutar la RPC; un producto que ya dejó de requerir atención no genera una orden.
 - La migración `0025` se ejecutó y registró en el proyecto remoto `Inventario` el 2026-11-23. La RPC se verificó con SQL de solo lectura; no usar `db push` por la brecha parcial de `0011`.
+- El panel «Reabastecer primero» también muestra «Armar orden» a Admin y Compras en todos los productos urgentes, aunque aún tengan stock. El servidor conserva la validación del producto y su proveedor activo.
 
 ## Crear borradores desde correos de alerta
 
