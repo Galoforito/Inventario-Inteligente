@@ -16,6 +16,7 @@ vi.mock("../src/lib/api.js", () => ({
   registrarMovimiento: vi.fn(),
   importarProductos: vi.fn(),
   listarMovimientos: vi.fn(),
+  importarMovimientos: vi.fn(),
   listarAlertas: vi.fn(),
   listarProductosBajos: vi.fn(),
   consultarModoCorreo: vi.fn(),
@@ -219,7 +220,7 @@ describe("Movimientos", () => {
     abrir("/movimientos");
     const fila = (await screen.findByText("Bolígrafo azul")).closest("tr");
     expect(within(fila).getByText("Salida")).toBeTruthy();
-    expect([...fila.querySelectorAll("td")].slice(4).map((celda) => celda.textContent)).toEqual(["Sin clasificar", "3", "10", "7"]);
+    expect([...fila.querySelectorAll("td")].slice(4).map((celda) => celda.textContent)).toEqual(["Sin clasificar", "3", "10", "7", "Manual"]);
   });
 });
 
@@ -440,5 +441,50 @@ describe("Dashboard", () => {
     api.cargarDashboard.mockResolvedValue(datosDashboard({ productos: [], ventas: [] }));
     abrir("/dashboard");
     expect(await screen.findByText("No hay productos registrados. Da de alta productos en Inventario para ver el análisis.")).toBeTruthy();
+  });
+});
+
+describe("Importar movimientos", () => {
+  async function archivoPlantilla() {
+    const { crearPlantillaMovimientos } = await import("../src/lib/excel.js");
+    const buffer = await crearPlantillaMovimientos("P003");
+    const archivo = new File([buffer], "movimientos.xlsx");
+    archivo.arrayBuffer = async () => buffer; // jsdom no siempre implementa File.arrayBuffer
+    return archivo;
+  }
+
+  it("Almacén importa, ve el resumen de nuevas y omitidas y recarga la lista", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "almacen", active: true });
+    api.importarMovimientos.mockResolvedValue({ agregados: 1, omitidos: 1 });
+    abrir("/movimientos");
+    const tarjeta = (await screen.findByRole("heading", { name: "Importar movimientos desde Excel" })).closest("section");
+    fireEvent.change(within(tarjeta).getByLabelText("Archivo .xlsx"), { target: { files: [await archivoPlantilla()] } });
+    fireEvent.submit(within(tarjeta).getByRole("button", { name: "Importar movimientos" }).closest("form"));
+    expect(await screen.findByText("Importación completada: 1 movimiento(s) nuevo(s) agregado(s) y stock actualizado; 1 fila(s) omitida(s) porque ya se habían importado."))
+      .toBeTruthy();
+    expect(api.importarMovimientos).toHaveBeenCalledWith([
+      expect.objectContaining({ fila: 2, codigo: "P003", tipo: "entrada", motivo: "compra", cantidad: 20 }),
+      expect.objectContaining({ fila: 3, codigo: "P003", tipo: "salida", motivo: "venta", cantidad: 3 }),
+    ]);
+    expect(api.listarMovimientos).toHaveBeenCalledTimes(2);
+  });
+
+  it("un error de la base se muestra y no se pierde la tabla", async () => {
+    api.importarMovimientos.mockRejectedValue(new Error("Fila 3: la salida de 3 u. dejaría el stock de P003 en negativo (hay 0)."));
+    abrir("/movimientos");
+    const tarjeta = (await screen.findByRole("heading", { name: "Importar movimientos desde Excel" })).closest("section");
+    fireEvent.change(within(tarjeta).getByLabelText("Archivo .xlsx"), { target: { files: [await archivoPlantilla()] } });
+    fireEvent.submit(within(tarjeta).getByRole("button", { name: "Importar movimientos" }).closest("form"));
+    expect(await screen.findByText("Fila 3: la salida de 3 u. dejaría el stock de P003 en negativo (hay 0).")).toBeTruthy();
+  });
+
+  it("Consulta y Compras no ven el importador", async () => {
+    for (const role of ["consulta", "compras"]) {
+      api.obtenerPerfil.mockResolvedValue({ role, active: true });
+      abrir("/movimientos");
+      await screen.findByText("Todavía no hay movimientos.");
+      expect(screen.queryByRole("heading", { name: "Importar movimientos desde Excel" })).toBeNull();
+      cleanup();
+    }
   });
 });

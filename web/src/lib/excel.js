@@ -1,5 +1,6 @@
 // Leer y escribir archivos de Excel (.xlsx) en el navegador.
 import { ENCABEZADOS, validarFilas } from "./validar.js";
+import { ENCABEZADOS_MOVIMIENTOS, MOTIVOS_POR_TIPO, hoyLocal, validarMovimientos } from "./importar-movimientos.js";
 
 export const LIMITE_BYTES = 2 * 1024 * 1024; // 2 MB
 
@@ -42,6 +43,16 @@ function valorCelda(valor) {
  * no devuelve nada (todo o nada).
  */
 export async function leerExcel(buffer) {
+  return validarFilas(await leerFilas(buffer));
+}
+
+/** Igual que leerExcel, pero para el archivo de movimientos. */
+export async function leerExcelMovimientos(buffer, hoy = hoyLocal()) {
+  return validarMovimientos(await leerFilas(buffer), hoy);
+}
+
+// Devuelve las celdas de la primera hoja: filas[0] es la fila 1 de Excel.
+async function leerFilas(buffer) {
   const ExcelJS = await cargarExcelJS();
   const libro = new ExcelJS.Workbook();
   try {
@@ -64,7 +75,41 @@ export async function leerExcel(buffer) {
       filas.push(fila);
     }
   }
-  return validarFilas(filas);
+  return filas;
+}
+
+/** Plantilla de movimientos: encabezado, dos filas de ejemplo y una hoja de instrucciones. */
+export async function crearPlantillaMovimientos(codigoEjemplo = "PROD-000001", hoy = hoyLocal()) {
+  const ExcelJS = await cargarExcelJS();
+  const libro = new ExcelJS.Workbook();
+  const hoja = libro.addWorksheet("Movimientos", { views: [{ state: "frozen", ySplit: 1 }] });
+  const fecha = new Date(`${hoy}T00:00:00Z`);
+  hoja.addRow(ENCABEZADOS_MOVIMIENTOS);
+  hoja.addRow([codigoEjemplo, fecha, "entrada", "compra", 20]);
+  hoja.addRow([codigoEjemplo, fecha, "salida", "venta", 3]);
+  hoja.getRow(1).eachCell((celda) => {
+    celda.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F1B33" } };
+  });
+  [16, 13, 11, 14, 10].forEach((ancho, i) => { hoja.getColumn(i + 1).width = ancho; });
+  hoja.getColumn(2).numFmt = "yyyy-mm-dd";
+
+  const ayuda = libro.addWorksheet("Instrucciones");
+  [
+    ["Columna", "Qué escribir"],
+    ["codigo", "Código del producto tal como aparece en Inventario (por ejemplo PROD-000001)."],
+    ["fecha", "Día del movimiento: fecha de Excel o AAAA-MM-DD. No puede ser futura."],
+    ["tipo", "entrada o salida."],
+    ["motivo", `Entrada: ${MOTIVOS_POR_TIPO.entrada.join(", ")}. Salida: ${MOTIVOS_POR_TIPO.salida.join(", ")}.`],
+    ["cantidad", "Unidades, entero mayor que cero."],
+    [],
+    ["Reimportar", "Las filas que ya se importaron antes se omiten; solo se agregan las nuevas."],
+    ["Pronóstico", "Solo las salidas con motivo venta cuentan como demanda."],
+  ].forEach((fila) => ayuda.addRow(fila));
+  ayuda.getRow(1).font = { bold: true };
+  ayuda.getColumn(1).width = 14;
+  ayuda.getColumn(2).width = 90;
+  return libro.xlsx.writeBuffer();
 }
 
 /** Crea un .xlsx con el mismo formato que acepta la importación. */

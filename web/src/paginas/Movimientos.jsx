@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Pagina from "../componentes/Pagina.jsx";
-import { cargarResumen, listarMovimientos } from "../lib/api.js";
+import { cargarResumen, importarMovimientos, listarMovimientos } from "../lib/api.js";
+import { crearPlantillaMovimientos, descargar, leerExcelMovimientos, revisarArchivo } from "../lib/excel.js";
 import { fechaLocal } from "../lib/fechas.js";
+import { usePerfil } from "../lib/perfil.jsx";
 
 const mayuscula = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
 const motivos = {
@@ -14,25 +16,88 @@ const motivos = {
   otro: "Otro",
 };
 
-// Historial de entradas y salidas. Solo lectura.
+function resumenImportacion({ agregados, omitidos }) {
+  const partes = [`${agregados} movimiento(s) nuevo(s) agregado(s) y stock actualizado`];
+  if (omitidos > 0) partes.push(`${omitidos} fila(s) omitida(s) porque ya se habían importado`);
+  return `Importación completada: ${partes.join("; ")}.`;
+}
+
+// Tarjeta para importar movimientos desde Excel (Admin y Almacén).
+function ImportarMovimientos({ ocupado, onImportar, onPlantilla }) {
+  async function enviar(evento) {
+    evento.preventDefault();
+    const formulario = evento.currentTarget;
+    if (await onImportar(formulario.elements.archivo.files[0])) formulario.reset();
+  }
+  return (
+    <section className="card">
+      <h3>Importar movimientos desde Excel</h3>
+      <p>
+        Columnas: <code>codigo, fecha, tipo, motivo, cantidad</code>. Tipo: <strong>entrada</strong> (compra, devolucion, ajuste, otro)
+        o <strong>salida</strong> (venta, merma, ajuste, otro). Se revisa todo el archivo antes de guardar: si una fila nueva tiene un error
+        o dejaría el stock en negativo, no se guarda nada. Si vuelves a subir un archivo, las filas que ya estaban importadas se omiten.
+      </p>
+      <form className="stack import-form" onSubmit={enviar}>
+        <label>Archivo .xlsx<input type="file" name="archivo" accept=".xlsx" required /></label>
+        <button disabled={ocupado}>Importar movimientos</button>
+      </form>
+      <button type="button" className="link-button download" disabled={ocupado} onClick={onPlantilla}>Descargar plantilla de movimientos</button>
+    </section>
+  );
+}
+
+// Historial de entradas y salidas; Admin y Almacén pueden importar desde Excel.
 export default function Movimientos() {
+  const perfil = usePerfil();
+  const puedeImportar = perfil.role === "admin" || perfil.role === "almacen";
   const [movimientos, setMovimientos] = useState(null);
   const [resumen, setResumen] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [ocupado, setOcupado] = useState(false);
 
-  useEffect(() => {
-    let vigente = true;
-    Promise.all([listarMovimientos(), cargarResumen()])
-      .then(([lista, r]) => { if (vigente) { setMovimientos(lista); setResumen(r); } })
-      .catch((motivo) => { if (vigente) { setMovimientos([]); setAviso({ tipo: "error", texto: motivo.message }); } });
-    return () => { vigente = false; };
+  const cargar = useCallback(async () => {
+    try {
+      const [lista, r] = await Promise.all([listarMovimientos(), cargarResumen()]);
+      setMovimientos(lista);
+      setResumen(r);
+    } catch (motivo) {
+      setMovimientos((actual) => actual ?? []);
+      setAviso({ tipo: "error", texto: motivo.message });
+    }
   }, []);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  async function importar(archivo) {
+    setOcupado(true);
+    try {
+      revisarArchivo(archivo);
+      const items = await leerExcelMovimientos(await archivo.arrayBuffer());
+      const resultado = await importarMovimientos(items);
+      setAviso({ tipo: "success", texto: resumenImportacion(resultado) });
+      await cargar();
+      return true;
+    } catch (motivo) {
+      setAviso({ tipo: "error", texto: motivo.message });
+      return false;
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function plantilla() {
+    try {
+      descargar(await crearPlantillaMovimientos(), "plantilla_movimientos.xlsx");
+    } catch (motivo) {
+      setAviso({ tipo: "error", texto: motivo.message });
+    }
+  }
 
   return (
     <Pagina resumen={resumen} aviso={aviso}>
       <div className="page-title">
         <div><h2>Movimientos</h2><p>Últimas 200 entradas y salidas registradas.</p></div>
       </div>
+      {puedeImportar && <ImportarMovimientos ocupado={ocupado} onImportar={importar} onPlantilla={plantilla} />}
       <section className="card table-card">
         {movimientos === null && <p className="cargando">Cargando movimientos…</p>}
         {movimientos !== null && movimientos.length === 0 && <p>Todavía no hay movimientos.</p>}
@@ -40,7 +105,7 @@ export default function Movimientos() {
           <div className="table-scroll tabla-tarjetas">
             <table>
               <thead>
-                <tr><th>Fecha</th><th>Código</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Unidades</th><th>Antes</th><th>Después</th></tr>
+                <tr><th>Fecha</th><th>Código</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Unidades</th><th>Antes</th><th>Después</th><th>Origen</th></tr>
               </thead>
               <tbody>
                 {movimientos.map((m) => (
@@ -53,6 +118,7 @@ export default function Movimientos() {
                     <td data-etiqueta="Unidades">{m.cantidad}</td>
                     <td data-etiqueta="Antes">{m.stock_anterior}</td>
                     <td data-etiqueta="Después">{m.stock_nuevo}</td>
+                    <td data-etiqueta="Origen">{m.import_key ? "Excel" : "Manual"}</td>
                   </tr>
                 ))}
               </tbody>
