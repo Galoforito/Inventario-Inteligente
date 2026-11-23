@@ -1,4 +1,4 @@
--- 0023 · Aviso al proveedor cuando una orden llega incompleta.
+-- 0024 · Aviso al proveedor cuando una orden llega incompleta.
 -- Compras/Admin lo envía a mano desde Órdenes cuando terminan de recibir y
 -- confirman que falta mercancía (la recepción se registra línea por línea, así
 -- que "recibida parcial" también aparece mientras se cuenta).

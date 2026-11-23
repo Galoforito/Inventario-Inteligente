@@ -17,7 +17,7 @@ Las ramas van encadenadas: cada una parte de la anterior. Se integran **en este 
 | 1 | `chore/fase0-base` | Categorías persistentes (0018), corrección del motivo "compra" (0019), pruebas al día | hacia `main` |
 | 2 | `feat/historial-pronostico` | Pronóstico solo con ventas, pestaña Dashboard, tabla compacta | hacia `chore/fase0-base` |
 | 3 | `feat/importar-movimientos` | Importador de movimientos desde Excel (0021) | hacia `feat/historial-pronostico` |
-| 4 | `feat/pdf-ordenes` | PDF profesional, aviso de entrega incompleta (0023), ventana emergente de la app, ajustes de Usuarios y encabezado | hacia `feat/importar-movimientos` |
+| 4 | `feat/pdf-ordenes` | PDF profesional, aviso de entrega incompleta (0024), ventana emergente de la app, ajustes de Usuarios y encabezado | hacia `feat/importar-movimientos` |
 
 > Los pull requests se abren en **`Galoforito/Inventario-Inteligente`**. GitHub propone por defecto el repositorio original (`CarlosGlez/...`); hay que cambiar *base repository* antes de crearlos.
 
@@ -25,7 +25,7 @@ Las ramas van encadenadas: cada una parte de la anterior. Se integran **en este 
 
 ## 2. Migraciones de base de datos
 
-Todas están aplicadas y verificadas en el Supabase remoto. El historial `supabase_migrations.schema_migrations` solo registra hasta `0010` porque desde la `0011` se aplican a mano en SQL Editor; la verificación se hizo consultando los objetos de la base.
+Las migraciones activas están verificadas en el Supabase remoto. El historial registra `0001`–`0010`, `0012`–`0019` y `0021`–`0024`; `0011` solo se aplicó parcialmente y queda sin registrar, `0020` está reservada. No usar `db push` mientras `0011` siga pendiente.
 
 | Migración | Qué hace | Estado remoto |
 |---|---|---|
@@ -35,8 +35,9 @@ Todas están aplicadas y verificadas en el Supabase remoto. El historial `supaba
 | `0019_motivo_compra_movimientos.sql` | Quita la restricción de `0007` que rechazaba el motivo `compra` | Aplicada y verificada 2026-11-22 |
 | `0020` | **Reservada para el compañero** (proveedor único / ciclo de orden) | — |
 | `0021_importar_movimientos.sql` | `movements.import_key`, función `importar_movimientos`, alertas solo con ventas | Aplicada y verificada 2026-11-23 |
-| `0022_alerta_ventas_diarias.sql` | **Del compañero:** corrige el promedio ponderado de las alertas cuando hay varias ventas el mismo día | Comprobar si ya está aplicada en remoto |
-| `0023_entrega_incompleta.sql` | Tipo de aviso `entrega_incompleta`, `ordenes_compra.incompleta_alert_id`, función `preparar_correo_entrega_incompleta` | Aplicada 2026-11-23 (se creó como `0022` y se renombró porque el compañero también usó `0022`; el nombre del archivo no afecta a la base) |
+| `0022_alerta_ventas_diarias.sql` | Corrige el promedio ponderado de las alertas cuando hay varias ventas el mismo día | Aplicada, verificada y registrada 2026-11-23 |
+| `0023_id_movimiento_importado.sql` | ID opcional estable para deduplicar importaciones por SKU + ID | Aplicada, verificada y registrada 2026-11-23 |
+| `0024_entrega_incompleta.sql` | Tipo de aviso `entrega_incompleta`, `ordenes_compra.incompleta_alert_id`, función `preparar_correo_entrega_incompleta` | Efectos aplicados y verificados 2026-11-23; registrada como `0024` |
 
 La Edge Function `revisar-inventario` se volvió a desplegar el 2026-11-23 con `npx supabase functions deploy revisar-inventario --use-api`.
 
@@ -112,7 +113,7 @@ Cuando una orden llega incompleta se avisa al proveedor por correo y se le pide 
 - El bot no reenvía por su cuenta los correos a proveedores (`orden_compra`, `entrega_incompleta`).
 - La app solo muestra "enviado" si el servidor lo confirma; con una función desactualizada avisa que hay que desplegarla.
 - Verificado con correo real el 2026-11-23.
-- Archivos: `supabase/migrations/0023_entrega_incompleta.sql`, `supabase/functions/revisar-inventario/{index,entrega,plantillas}.ts`, `web/src/componentes/Modal.jsx`, `web/src/paginas/Ordenes.jsx`, `web/src/paginas/Alertas.jsx`, `web/src/lib/api.js`.
+- Archivos: `supabase/migrations/0024_entrega_incompleta.sql`, `supabase/functions/revisar-inventario/{index,entrega,plantillas}.ts`, `web/src/componentes/Modal.jsx`, `web/src/paginas/Ordenes.jsx`, `web/src/paginas/Alertas.jsx`, `web/src/lib/api.js`.
 
 ---
 
