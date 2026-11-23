@@ -10,6 +10,7 @@ vi.mock("../src/lib/api.js", () => ({
   cargarInventario: vi.fn(),
   cargarDashboard: vi.fn(),
   crearOrdenRapida: vi.fn(),
+  crearOrdenesAgrupadas: vi.fn(),
   cargarResumen: vi.fn(),
   guardarProducto: vi.fn(),
   eliminarProducto: vi.fn(),
@@ -450,7 +451,7 @@ describe("Dashboard", () => {
     expect(within(tarjetas).getByText("Productos agotados").nextSibling.textContent).toBe("1");
     expect(within(tarjetas).getByText("Bajo el mínimo").nextSibling.textContent).toBe("2");
     const tabla = screen.getByRole("heading", { name: "Requiere atención" }).closest("section");
-    expect(within(tabla).getAllByRole("row").slice(1).map((f) => within(f).getAllByRole("cell")[0].textContent))
+    expect(within(tabla).getAllByRole("row").slice(1).map((f) => within(f).getAllByRole("cell")[1].textContent))
       .toEqual(["EngrapadoraP010", "Bolígrafo azulP003"]);
     expect(within(tabla).getByText("Papelera del Centro")).toBeTruthy();
     expect(within(tabla).getByText("Papelería Centro")).toBeTruthy();
@@ -477,6 +478,30 @@ describe("Dashboard", () => {
     const fila = within(tabla).getByText("Bolígrafo azul").closest("tr");
     fireEvent.click(await within(fila).findByRole("button", { name: "Armar orden" }));
     await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(1, 7));
+  });
+
+  it("agrupa productos seleccionados del mismo proveedor en un borrador por proveedor", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.cargarDashboard.mockResolvedValue(datosDashboard({ relaciones: [
+      { product_id: 1, proveedor_id: 8, costo_unitario: 42, proveedores: { nombre: "Proveedor común", activo: true } },
+      { product_id: 3, proveedor_id: 8, costo_unitario: 70, proveedores: { nombre: "Proveedor común", activo: true } },
+    ] }));
+    api.crearOrdenesAgrupadas.mockResolvedValue({
+      total_productos: 2,
+      ordenes: [{ folio: "OC-AGRUPADA", proveedor: "Proveedor común", productos: 2, cantidad: 9 }],
+    });
+    api.listarOrdenes.mockResolvedValue([]);
+    abrir("/dashboard");
+    const tabla = (await screen.findByRole("heading", { name: "Requiere atención" })).closest("section");
+    fireEvent.click(within(tabla).getByRole("checkbox", { name: "Seleccionar P003 para orden" }));
+    fireEvent.click(within(tabla).getByRole("checkbox", { name: "Seleccionar P010 para orden" }));
+    fireEvent.click(within(tabla).getByRole("button", { name: "Crear borradores agrupados (2)" }));
+
+    await waitFor(() => expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([
+      { producto_id: 3, cantidad: 4 }, { producto_id: 1, cantidad: 7 },
+    ]));
+    expect(await screen.findByRole("heading", { name: "Órdenes de compra" })).toBeTruthy();
+    expect(await screen.findByText(/2 producto\(s\) agrupados en 1 borrador\(es\), uno por proveedor: OC-AGRUPADA para Proveedor común/)).toBeTruthy();
   });
 
   it("Consulta solo ve: no hay botón de orden", async () => {
@@ -610,6 +635,7 @@ describe("Asignaciones de proveedores", () => {
     });
     abrir("/proveedores");
     const seccion = (await screen.findByRole("heading", { name: "Proveedor asignado por producto" })).closest("section");
+    expect(await within(seccion).findByText(/2 asignados - 1 pendientes/)).toBeTruthy();
     const filas = () => within(seccion).getAllByRole("row").slice(1);
     expect(within(seccion).getByText("Mínimo de unidades")).toBeTruthy();
     expect(within(seccion).getByText("3", { selector: "td" })).toBeTruthy();

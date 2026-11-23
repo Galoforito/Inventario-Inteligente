@@ -220,6 +220,10 @@ export async function crearOrdenRapida(productId, cantidad) {
   }));
 }
 
+export async function crearOrdenesAgrupadas(items) {
+  return revisar(await supabase.rpc("crear_ordenes_agrupadas", { p_items: items }));
+}
+
 export async function recibirLineaOrden(lineaId, cantidad) {
   return revisar(await supabase.rpc("recibir_linea_orden", { p_linea_id: lineaId, p_cantidad: Number(cantidad) }));
 }

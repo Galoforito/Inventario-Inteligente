@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import GraficaPronostico from "../componentes/GraficaPronostico.jsx";
 import Pagina from "../componentes/Pagina.jsx";
-import { cargarDashboard, crearOrdenRapida } from "../lib/api.js";
+import { cargarDashboard, crearOrdenRapida, crearOrdenesAgrupadas } from "../lib/api.js";
 import {
   DIAS_ATENCION, DIAS_CRITICO, DIAS_EXCESO, ESTADOS, ESTADOS_CATEGORIA, SIN_CATEGORIA,
   enriquecerProductos, filtrarCategoria, requierenAtencion, resumenCategorias, tarjetas,
@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [ocupado, setOcupado] = useState(false);
   const [categoria, setCategoria] = useState("");
   const [productoId, setProductoId] = useState(null);
+  const [productosSeleccionados, setProductosSeleccionados] = useState(() => new Set());
   const [periodo, setPeriodo] = useState(30);
   const [horizonte, setHorizonte] = useState(30);
 
@@ -68,6 +69,13 @@ export default function Dashboard() {
   const visibles = useMemo(() => filtrarCategoria(todos, categoria), [todos, categoria]);
   const totales = useMemo(() => tarjetas(visibles), [visibles]);
   const atencion = useMemo(() => requierenAtencion(visibles), [visibles]);
+  useEffect(() => {
+    const disponibles = new Set(atencion.filter((p) => p.proveedor).map((p) => p.id));
+    setProductosSeleccionados((actuales) => {
+      const siguientes = new Set([...actuales].filter((id) => disponibles.has(id)));
+      return siguientes.size === actuales.size ? actuales : siguientes;
+    });
+  }, [atencion]);
 
   // El enlace del correo llega aquí con una solicitud de reabasto. El RPC
   // vuelve a comprobar rol, stock, cobertura y proveedor antes de crear el borrador.
@@ -130,6 +138,36 @@ export default function Dashboard() {
     try {
       const orden = await crearOrdenRapida(p.id, Math.max(1, p.sugerido));
       navegar("/ordenes", { state: { aviso: { tipo: "success", texto: `Borrador ${orden.folio} listo para ${orden.proveedor}, con ${orden.cantidad} unidad(es).` } } });
+    } catch (motivo) {
+      setAviso({ tipo: "error", texto: motivo.message });
+      setOcupado(false);
+    }
+  }
+
+  function seleccionarProductoOrden(productoIdSeleccionado, seleccionado) {
+    setProductosSeleccionados((actuales) => {
+      const siguientes = new Set(actuales);
+      if (seleccionado) siguientes.add(productoIdSeleccionado);
+      else siguientes.delete(productoIdSeleccionado);
+      return siguientes;
+    });
+  }
+
+  async function armarOrdenesAgrupadas() {
+    const seleccion = atencion.filter((p) => p.proveedor && productosSeleccionados.has(p.id));
+    if (seleccion.length === 0) return;
+    setOcupado(true);
+    try {
+      const resultado = await crearOrdenesAgrupadas(seleccion.map((p) => ({
+        producto_id: p.id,
+        cantidad: Math.max(1, p.sugerido),
+      })));
+      const borradores = resultado.ordenes ?? [];
+      const detalle = borradores.map((orden) => `${orden.folio} para ${orden.proveedor}`).join("; ");
+      navegar("/ordenes", { state: { aviso: {
+        tipo: "success",
+        texto: `${resultado.total_productos ?? seleccion.length} producto(s) agrupados en ${borradores.length} borrador(es), uno por proveedor: ${detalle}.`,
+      } } });
     } catch (motivo) {
       setAviso({ tipo: "error", texto: motivo.message });
       setOcupado(false);
@@ -210,8 +248,12 @@ export default function Dashboard() {
           <div className="table-head">
             <div>
               <h3>Requiere atención</h3>
-              <p className="muted table-note">{atencion.length} producto(s). Críticos primero; dentro de cada estado, mayor costo del faltante.</p>
+              <p className="muted table-note">{atencion.length} producto(s). Críticos primero; dentro de cada estado, mayor costo del faltante. Selecciona varios productos para preparar borradores agrupados por proveedor.</p>
             </div>
+            {puedeOrdenar && <button type="button" className="primary" disabled={ocupado || productosSeleccionados.size === 0}
+              onClick={armarOrdenesAgrupadas}>
+              Crear borradores agrupados ({productosSeleccionados.size})
+            </button>}
           </div>
           {atencion.length === 0 ? (
             <p className="empty-ok table-empty">Ningún producto {categoria ? "de esta categoría " : ""}está crítico ni en atención.</p>
@@ -220,6 +262,7 @@ export default function Dashboard() {
               <table>
                 <thead>
                   <tr>
+                    {puedeOrdenar && <th>Seleccionar</th>}
                     <th>Producto</th><th>Categoría</th><th>Stock / mín.</th><th>Cobertura</th><th>Se agota</th>
                     <th className="num">Sugerido</th><th className="num">Costo faltante</th><th>Proveedor</th><th>Estado</th><th>Orden</th>
                   </tr>
@@ -227,6 +270,10 @@ export default function Dashboard() {
                 <tbody>
                   {atencion.map((p) => (
                     <tr key={p.id} className={p.estado === "critico" ? "low-row" : ""}>
+                      {puedeOrdenar && <td data-etiqueta="Seleccionar">
+                        {p.proveedor ? <input type="checkbox" aria-label={`Seleccionar ${p.codigo} para orden`} checked={productosSeleccionados.has(p.id)}
+                          disabled={ocupado} onChange={(e) => seleccionarProductoOrden(p.id, e.target.checked)} /> : <span className="muted">—</span>}
+                      </td>}
                       <td data-etiqueta="Producto"><button type="button" className="link-button" onClick={() => setProductoId(p.id)}>{p.nombre}</button><small className="sub nowrap">{p.codigo}</small></td>
                       <td data-etiqueta="Categoría">{p.categoria}</td>
                       <td data-etiqueta="Stock / mín." className="nowrap">{p.stock_actual} <small className="muted">/ {p.stock_minimo}</small></td>

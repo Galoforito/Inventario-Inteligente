@@ -8,10 +8,10 @@ Este documento ayuda al equipo a explicar qué ofrece la aplicación, qué se he
 ## Estado y criterio de lectura
 
 - **Heredado:** funcionalidades observadas en el miniproyecto original Flask/SQLite y conservadas en la versión actual React/Supabase.
-- **Nuevo equipo, integrado en `main`:** cambios de ampliación fusionados en el fork. Las PR #11 y #12 también están integradas.
+- **Nuevo equipo, integrado en `main`:** cambios de ampliación fusionados en el fork, incluidos los arreglos de las PR #14 y #15.
 - **Integrado y verificado:** catálogo persistente de categorías (rama `feat/catalogo-categorias-persistente`). La migración `0018_categorias.sql` se aplicó y verificó en Supabase remoto el 2026-11-22.
 - **Pendiente:** información o aceptación que aún requiere intervención del equipo; los pendientes concretos están al cierre de la sección 4.
-- **Verificado en producción:** las migraciones `0026`/`0027` están aplicadas, Vercel reportó producción lista y la Edge Function `revisar-inventario` está activa en versión 15.
+- **Verificado en producción:** las migraciones `0026`–`0028` están aplicadas, Vercel reportó producción lista y la Edge Function `revisar-inventario` está activa en versión 15.
 
 ## 1. Funciones heredadas del miniproyecto original
 
@@ -112,7 +112,7 @@ El historial del fork y el README identifican esta etapa como la ampliación del
 
 ## 4. Estado de cierre de los requisitos del plan
 
-**Actualizado 2026-11-23:** las PR #11 y #12 están fusionadas en `main`, Vercel producción reportó despliegue exitoso, las migraciones `0026` y `0027` están aplicadas y registradas, y `revisar-inventario` está activa en versión 15. La validación local combinada pasó 238 pruebas y build. La evidencia redactada de tres ejemplos (de nueve alertas SMTP aceptadas) está en `EVIDENCIA_ALERTAS.md`; el backtest sintético está en `EVALUACION_PRONOSTICO.md`.
+**Actualizado 2026-11-23:** las PR #11, #12, #14, #15 y #16 están fusionadas en `main`; Vercel reportó producción lista, las migraciones `0026`–`0028` están aplicadas y registradas, y `revisar-inventario` está activa en versión 15. La validación local combinada pasó 241 pruebas y build. La evidencia redactada de tres ejemplos (de nueve alertas SMTP aceptadas) está en `EVIDENCIA_ALERTAS.md`; el backtest sintético está en `EVALUACION_PRONOSTICO.md`.
 
 Queda completar información del catálogo y pruebas con las cuentas `compras`/`consulta`: Supabase remoto solo tiene perfiles activos `admin` y `almacen`. El PDF contiene identidad fiscal de demostración; hace falta reemplazarla por datos reales antes de usarlo en una operación comercial. Persisten 101 productos sin proveedor activo; deben asignarse con información del equipo, desde Inventario/Proveedores o importando la columna opcional `proveedor`. No se inventarán asociaciones.
 
@@ -122,12 +122,14 @@ Queda completar información del catálogo y pruebas con las cuentas `compras`/`
 - Se puede asignar/cambiar desde Inventario y desde Proveedores → Asignar producto.
 - El proveedor con productos asignados no se puede archivar hasta reasignarlos.
 - La app muestra productos sin proveedor; 101 registros existentes requieren completar la relación con datos del equipo.
+- La tabla de asignaciones muestra el mínimo de unidades por producto/proveedor y permite buscar, filtrar por proveedor/estado y ordenar resultados.
 
 ### Flujo completo de órdenes — implementado y desplegado
 
 - Conservar el reabastecimiento como acción manual; no crear órdenes automáticamente por cada movimiento.
 - Desde el correo de alerta de stock, ofrecer un botón que cree directamente un borrador para el producto relacionado.
-- Mantener una orden por proveedor, incluso si contiene varias líneas/productos.
+- Desde Dashboard, permitir seleccionar varios productos y crear borradores agrupados por proveedor: una orden por proveedor, con varias líneas.
+- Las acciones rápidas sucesivas del mismo proveedor reutilizan el borrador abierto. Un mismo producto no puede estar en más de un borrador abierto; debe enviarse o cancelarse el borrador anterior antes de volver a solicitarlo.
 - Exigir el orden del ciclo: borrador → enviado → confirmado manualmente por Compras/admin → recepción.
 - Aunque el envío se simule en demo, debe considerarse enviada; no permitir recepcionar hasta confirmar.
 - Impedir recepción prematura tanto en la interfaz como en la RPC/base de datos.

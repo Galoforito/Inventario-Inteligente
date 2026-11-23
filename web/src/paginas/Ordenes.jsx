@@ -151,7 +151,7 @@ export default function Ordenes() {
     ventana.document.write(htmlOrden(orden, NEGOCIO, LOGO_SVG));
     ventana.document.close();
   }
-  return <Pagina aviso={aviso} resumen={null}><div className="page-title"><div><h2>Órdenes de compra</h2><p>Los borradores se generan desde una alerta y agrupan líneas por proveedor.</p></div></div>
+  return <Pagina aviso={aviso} resumen={null}><div className="page-title"><div><h2>Órdenes de compra</h2><p>Selecciona varios productos en Dashboard para crear borradores agrupados por proveedor; cada producto solo puede estar en un borrador abierto.</p></div></div>
     {ordenes.length === 0 && <section className="card"><p>No hay órdenes. En Historial de alertas puedes generar un borrador desde una alerta.</p></section>}
     {ordenes.length > 0 && <section className="card order-filters" aria-label="Filtros de órdenes de compra">
       <label>Desde<input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></label>
