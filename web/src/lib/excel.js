@@ -85,13 +85,13 @@ export async function crearPlantillaMovimientos(codigoEjemplo = "PROD-000001", h
   const hoja = libro.addWorksheet("Movimientos", { views: [{ state: "frozen", ySplit: 1 }] });
   const fecha = new Date(`${hoy}T00:00:00Z`);
   hoja.addRow(ENCABEZADOS_MOVIMIENTOS);
-  hoja.addRow([codigoEjemplo, fecha, "entrada", "compra", 20]);
-  hoja.addRow([codigoEjemplo, fecha, "salida", "venta", 3]);
+  hoja.addRow([codigoEjemplo, fecha, "entrada", "compra", 20, "MOV-000001"]);
+  hoja.addRow([codigoEjemplo, fecha, "salida", "venta", 3, "MOV-000002"]);
   hoja.getRow(1).eachCell((celda) => {
     celda.font = { bold: true, color: { argb: "FFFFFFFF" } };
     celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F1B33" } };
   });
-  [16, 13, 11, 14, 10].forEach((ancho, i) => { hoja.getColumn(i + 1).width = ancho; });
+  [16, 13, 11, 14, 10, 20].forEach((ancho, i) => { hoja.getColumn(i + 1).width = ancho; });
   hoja.getColumn(2).numFmt = "yyyy-mm-dd";
 
   const ayuda = libro.addWorksheet("Instrucciones");
@@ -102,12 +102,13 @@ export async function crearPlantillaMovimientos(codigoEjemplo = "PROD-000001", h
     ["tipo", "entrada o salida."],
     ["motivo", `Entrada: ${MOTIVOS_POR_TIPO.entrada.join(", ")}. Salida: ${MOTIVOS_POR_TIPO.salida.join(", ")}.`],
     ["cantidad", "Unidades, entero mayor que cero."],
+    ["id_movimiento", "Opcional. ID único del movimiento en el sistema de origen. Junto con el SKU permite reconocer reimportaciones sin confundir movimientos legítimos iguales."],
     [],
     ["Reimportar", "Las filas que ya se importaron antes se omiten; solo se agregan las nuevas."],
     ["Pronóstico", "Solo las salidas con motivo venta cuentan como demanda."],
   ].forEach((fila) => ayuda.addRow(fila));
   ayuda.getRow(1).font = { bold: true };
-  ayuda.getColumn(1).width = 14;
+  ayuda.getColumn(1).width = 20;
   ayuda.getColumn(2).width = 90;
   return libro.xlsx.writeBuffer();
 }

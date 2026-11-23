@@ -22,7 +22,7 @@ describe("leerFecha", () => {
 describe("limpiarMovimiento", () => {
   it("normaliza tipo y motivo, incluidas las etiquetas con acentos", () => {
     expect(limpiarMovimiento(fila({ tipo: "Entrada", motivo: "Compra o recepción", cantidad: "20" }), HOY))
-      .toEqual({ codigo: "PROD-000001", fecha: "2026-10-01", tipo: "entrada", motivo: "compra", cantidad: 20 });
+      .toEqual({ codigo: "PROD-000001", fecha: "2026-10-01", tipo: "entrada", motivo: "compra", cantidad: 20, id_movimiento: null });
     expect(limpiarMovimiento(fila({ motivo: "Ajuste negativo" }), HOY).motivo).toBe("ajuste");
   });
   it("rechaza un motivo que no corresponde al tipo", () => {
@@ -51,6 +51,14 @@ describe("validarMovimientos", () => {
     expect(r).toHaveLength(2);
   });
 
+  it("mantiene IDs distintos en movimientos con los mismos datos", () => {
+    const r = validarMovimientos([
+      ENCABEZADOS_MOVIMIENTOS,
+      ["A", "2026-10-01", "salida", "venta", 2, "TX-101"],
+      ["A", "2026-10-01", "salida", "venta", 2, "TX-102"],
+    ], HOY);
+    expect(r.map((m) => m.id_movimiento)).toEqual(["TX-101", "TX-102"]);
+  });
   it("junta todos los errores con su fila y no devuelve nada", () => {
     expect(() => validarMovimientos([encabezado, ["", "2026-10-01", "salida", "venta", 2], ["A", "2026-13-01", "salida", "venta", 2]], HOY))
       .toThrow(/Fila 2: codigo: .*\nFila 3: fecha:/);
@@ -58,6 +66,7 @@ describe("validarMovimientos", () => {
 
   it("exige el encabezado exacto, sin importar mayúsculas", () => {
     expect(validarMovimientos([["Codigo", "FECHA", "tipo", "motivo", "cantidad"], ["A", "2026-10-01", "salida", "venta", 1]], HOY)).toHaveLength(1);
+    expect(validarMovimientos([[...ENCABEZADOS_MOVIMIENTOS], ["A", "2026-10-01", "salida", "venta", 1, "  MOV-1  "]], HOY)[0].id_movimiento).toBe("MOV-1");
     expect(() => validarMovimientos([["codigo", "tipo", "fecha", "motivo", "cantidad"]], HOY)).toThrow("La primera fila debe contener");
     expect(() => validarMovimientos([encabezado], HOY)).toThrow("no contiene movimientos");
   });
@@ -67,8 +76,8 @@ describe("Excel de movimientos", () => {
   it("la plantilla se puede importar tal como se descarga", async () => {
     const items = await leerExcelMovimientos(await crearPlantillaMovimientos("PROD-000007", HOY), HOY);
     expect(items).toEqual([
-      { fila: 2, codigo: "PROD-000007", fecha: HOY, tipo: "entrada", motivo: "compra", cantidad: 20 },
-      { fila: 3, codigo: "PROD-000007", fecha: HOY, tipo: "salida", motivo: "venta", cantidad: 3 },
+      { fila: 2, codigo: "PROD-000007", fecha: HOY, tipo: "entrada", motivo: "compra", cantidad: 20, id_movimiento: "MOV-000001" },
+      { fila: 3, codigo: "PROD-000007", fecha: HOY, tipo: "salida", motivo: "venta", cantidad: 3, id_movimiento: "MOV-000002" },
     ]);
   });
 
