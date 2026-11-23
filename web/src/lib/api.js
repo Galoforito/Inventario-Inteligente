@@ -206,7 +206,7 @@ export async function vincularProductoProveedor(proveedorId, productId, costoUni
 }
 
 export async function listarOrdenes() {
-  return revisar(await supabase.from("ordenes_compra").select("*, proveedores(nombre, correo, telefono, lead_time_dias), orden_lineas(*, products(codigo,nombre))").order("created_at", { ascending: false }));
+  return revisar(await supabase.from("ordenes_compra").select("*, proveedores(nombre, correo, telefono, lead_time_dias), orden_lineas(*, products(codigo,nombre,stock_actual,stock_minimo))").order("created_at", { ascending: false }));
 }
 
 export async function crearBorradores(alertaId) {
@@ -218,6 +218,16 @@ export async function crearOrdenRapida(productId, cantidad) {
     p_producto_id: productId,
     p_cantidad: enteroNoNegativo(cantidad, "cantidad sugerida"),
   }));
+}
+
+/** Cambia la cantidad de una línea mientras la orden es borrador (mínimo: llegar al stock mínimo). */
+export async function actualizarCantidadLinea(lineaId, cantidad) {
+  return revisar(await supabase.rpc('actualizar_cantidad_linea_borrador', { p_linea_id: lineaId, p_cantidad: Number(cantidad) }));
+}
+
+/** Cierra una orden incompleta ya reclamada: 'faltante_cancelado' o 'devuelta'. */
+export async function cerrarOrdenIncompleta(ordenId, tipo, nota = '') {
+  return revisar(await supabase.rpc('cerrar_orden_incompleta', { p_orden_id: ordenId, p_tipo: tipo, p_nota: nota }));
 }
 
 export async function crearOrdenesAgrupadas(items) {

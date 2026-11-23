@@ -461,3 +461,20 @@ button:disabled.small { opacity: .55; cursor: default; }
 .modal-nota { font-size: .82rem; color: var(--gold); }
 .modal-acciones { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding: 14px 22px 20px; border-top: 1px solid var(--border); }
 @media (max-width: 470px) { .modal-acciones > * { flex: 1 1 100%; } }
+
+/* Lista con búsqueda (SelectorBuscable) */
+.combo { position: relative; display: grid; gap: 6px; }
+.combo > label { font-weight: 600; }
+.combo-lista { position: absolute; z-index: 50; top: 100%; left: 0; right: 0; margin: 4px 0 0; padding: 4px; list-style: none;
+  max-height: 280px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 30px #0008; }
+.combo-lista li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.combo-lista li small { color: var(--muted); font-size: .78rem; }
+.combo-lista li.activa { background: #ffffff12; }
+.combo-lista li[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--gold); }
+.combo-lista .combo-vacio { cursor: default; color: var(--muted); font-size: .84rem; }
+
+/* Cantidades a comprar y errores de campo */
+.tabla-cantidades input { width: 110px; }
+.campo-error { display: block; margin-top: 4px; color: var(--red); font-size: .8rem; }
+input[aria-invalid="true"] { border-color: var(--red); }
+.order-closure { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 8px; }
