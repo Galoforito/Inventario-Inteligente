@@ -81,3 +81,17 @@ Verificación registrada: `npm.cmd test` (166 pruebas) y `npm.cmd run build` com
 - Los archivos antiguos sin la columna siguen funcionando y conservan la deduplicación por contenido y posición de filas idénticas. No agregues IDs retroactivos a filas ya importadas sin ID: no pueden asociarse con certeza a su registro previo.
 - La migración `0023_id_movimiento_importado.sql` agrega el campo e instala la lógica transaccional en la RPC.
 - Aplicación remota confirmada el 2026-11-23: migraciones `0021`, `0022` y `0023` ejecutadas y registradas en el historial de Supabase.
+## Auditoría SQL de migraciones antiguas
+
+Consulta remota de solo lectura realizada el 2026-11-23. No se ejecutó ninguna migración antigua.
+
+- `0011`: las funciones de alertas y órdenes existen, pero sus versiones fueron reemplazadas por migraciones posteriores (`0022` y `0016`). Las actualizaciones puntuales de datos de esa migración no se pueden demostrar solo con el estado actual.
+- `0012`: columnas snapshot obligatorias, FK con `ON DELETE SET NULL`, trigger de snapshots y funciones para enviar/recibir órdenes presentes.
+- `0013`: las cuatro políticas de proveedores presentes; el borrado está limitado a admin.
+- `0014`: restricciones entrada/salida y RPC de movimiento con motivo presentes.
+- `0015`: secuencia SKU, triggers de asignación/inmutabilidad y RPC de importación de productos presentes.
+- `0016`: RPC de órdenes usa mínimo por producto/proveedor y no aplica compra mínima del proveedor.
+- `0017`: RPC de orden rápida presente.
+- `0018`: catálogo persistente, valor predeterminado, trigger y política de lectura presentes.
+- `0019`: restricción de motivo global incluye `compra`.
+- El historial de Supabase aún no registra `0011`–`0019`; no ejecutar `supabase db push` hasta reconciliarlo con cuidado.
