@@ -137,6 +137,11 @@ export async function importarProductos(items) {
   return revisar(await supabase.rpc("importar_productos_con_permiso", { p_items: items }));
 }
 
+/** Importa movimientos del Excel en una sola transacción. Devuelve { agregados, omitidos }. */
+export async function importarMovimientos(items) {
+  return revisar(await supabase.rpc("importar_movimientos", { p_items: items }));
+}
+
 export async function listarMovimientos() {
   return revisar(await supabase.from("movements").select("*").order("id", { ascending: false }).limit(LIMITE_LISTADOS));
 }
