@@ -8,6 +8,7 @@ const ESTADOS = {
   enviada: "Enviada",
   confirmada: "Confirmada",
   "recibida parcial": "Recibida parcial",
+  "cerrada incompleta": "Cerrada incompleta",
   recibida: "Recibida",
   cancelada: "Cancelada",
 };

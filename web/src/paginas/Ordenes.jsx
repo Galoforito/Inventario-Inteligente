@@ -1,13 +1,94 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Pagina from "../componentes/Pagina.jsx";
-import { confirmarOrdenCompra, enviarOrdenProveedor, listarOrdenes, recibirLineaOrden, reportarEntregaIncompleta } from "../lib/api.js";
+import { actualizarCantidadLinea, cerrarOrdenIncompleta, confirmarOrdenCompra, enviarOrdenProveedor, listarOrdenes, recibirLineaOrden, reportarEntregaIncompleta } from "../lib/api.js";
+import { errorCantidad, minimoCompra } from "../lib/compras.js";
 import { fechaLocal } from "../lib/fechas.js";
 import { dinero } from "../lib/dinero.js";
 import { usePerfil } from "../lib/perfil.jsx";
 import { LOGO_SVG, NEGOCIO } from "../lib/negocio.js";
 import { htmlOrden, totalOrden } from "../lib/orden-pdf.js";
 import Modal from "../componentes/Modal.jsx";
+
+// Ventana para cambiar la cantidad de una línea mientras la orden es borrador.
+function CambiarCantidad({ linea, proveedorId, ocupado, onGuardar, onCerrar }) {
+  const asignacion = linea.products?.proveedor_productos?.find((r) => Number(r.proveedor_id) === Number(proveedorId));
+  const producto = {
+    stock_actual: linea.products?.stock_actual ?? 0,
+    stock_minimo: linea.products?.stock_minimo ?? 0,
+    proveedor_minimo_unidades: asignacion?.minimo_unidades ?? 1,
+  };
+  const [texto, setTexto] = useState(String(linea.cantidad));
+  const error = errorCantidad(producto, texto);
+  const codigo = linea.product_code ?? linea.products?.codigo;
+  return (
+    <Modal titulo="Cambiar cantidad" onCerrar={onCerrar} ocupado={ocupado}
+      acciones={<>
+        <button type="button" disabled={ocupado} onClick={onCerrar}>Cancelar</button>
+        <button type="button" className="primary" disabled={ocupado || Boolean(error)} onClick={() => onGuardar(linea, Number(texto))}>
+          {ocupado ? "Guardando…" : "Guardar cantidad"}
+        </button>
+      </>}>
+      <p><span className="mono">{codigo}</span> · {linea.product_name ?? linea.products?.nombre}</p>
+      {linea.products && <p className="muted">Stock {producto.stock_actual} / mínimo {producto.stock_minimo}. No se puede pedir menos de <strong>{minimoCompra(producto)}</strong> unidades (mínimo de stock o de venta del proveedor).</p>}
+      <label>Unidades a comprar
+        <input type="number" min={minimoCompra(producto)} step="1" inputMode="numeric" data-autofocus value={texto}
+          aria-invalid={Boolean(error)} disabled={ocupado} onChange={(e) => setTexto(e.target.value)} />
+      </label>
+      {error && <small className="campo-error" role="alert">{error}</small>}
+    </Modal>
+  );
+}
+
+const CIERRES = {
+  faltante_cancelado: {
+    titulo: "El proveedor canceló el faltante",
+    explicacion: "El proveedor no enviará las unidades que faltan. La orden se cierra con lo recibido y el stock no cambia.",
+    boton: "Cerrar orden con lo recibido",
+  },
+  devuelta: {
+    titulo: "Devolver lo recibido al proveedor",
+    explicacion: "Se devuelven al proveedor las unidades recibidas: se restan del stock (salida con motivo «otro») y la orden queda cancelada.",
+    boton: "Registrar devolución y cancelar",
+  },
+};
+
+// Ventana para cerrar una orden incompleta ya reclamada: faltante cancelado o devolución.
+function CierreIncompleta({ orden, tipo, ocupado, onConfirmar, onCerrar }) {
+  const [nota, setNota] = useState("");
+  const info = CIERRES[tipo];
+  const lineas = orden.orden_lineas ?? [];
+  const devueltas = lineas.reduce((s, l) => s + Number(l.recibida ?? 0), 0);
+  return (
+    <Modal titulo={info.titulo} onCerrar={onCerrar} ocupado={ocupado}
+      acciones={<>
+        <button type="button" disabled={ocupado} onClick={onCerrar}>Cancelar</button>
+        <button type="button" className={tipo === "devuelta" ? "danger" : "primary"} data-autofocus disabled={ocupado} onClick={() => onConfirmar(orden, tipo, nota)}>
+          {ocupado ? "Guardando…" : info.boton}
+        </button>
+      </>}>
+      <p>Orden <strong>{orden.folio}</strong> · {orden.proveedores?.nombre}. {info.explicacion}</p>
+      <div className="table-scroll">
+        <table className="modal-tabla">
+          <thead><tr><th>Producto</th><th className="num">Pedidas</th><th className="num">Recibidas</th><th className="num">{tipo === "devuelta" ? "Se devuelven" : "No llegarán"}</th></tr></thead>
+          <tbody>{lineas.map((l) => (
+            <tr key={l.id}>
+              <td><span className="mono">{l.product_code ?? l.products?.codigo}</span><small className="sub">{l.product_name ?? l.products?.nombre}</small></td>
+              <td className="num">{l.cantidad}</td><td className="num">{l.recibida}</td>
+              <td className="num"><strong>{tipo === "devuelta" ? l.recibida : l.cantidad - l.recibida}</strong></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {tipo === "devuelta" && <p className="modal-nota">Se restarán {devueltas} unidad(es) del inventario.</p>}
+      <label>Nota <small className="muted">(opcional, máximo 500 caracteres)</small>
+        <textarea rows={2} maxLength={500} value={nota} disabled={ocupado} onChange={(e) => setNota(e.target.value)}
+          placeholder={tipo === "devuelta" ? "Por ejemplo: mercancía dañada, se devolvió el 25/11." : "Por ejemplo: el proveedor ya no tiene existencias."} />
+      </label>
+      <p className="modal-nota">Esta acción cierra la orden y no se puede deshacer.</p>
+    </Modal>
+  );
+}
 
 // Ventana para confirmar el aviso de entrega incompleta, con lo que falta y una nota opcional.
 function ReporteFaltante({ orden, ocupado, onEnviar, onCerrar }) {
@@ -67,6 +148,12 @@ export default function Ordenes() {
   const [reportando, setReportando] = useState(null); // orden cuyo faltante se va a reportar
   const [enviandoReporte, setEnviandoReporte] = useState(false);
   const cerrarReporte = useCallback(() => setReportando(null), []);
+  const [editandoLinea, setEditandoLinea] = useState(null); // línea de borrador cuya cantidad se cambia
+  const [cierre, setCierre] = useState(null);                // { orden, tipo } de la orden incompleta a cerrar
+  const [guardando, setGuardando] = useState(false);
+  const cerrarEdicion = useCallback(() => setEditandoLinea(null), []);
+  const cerrarCierre = useCallback(() => setCierre(null), []);
+  const puedeComprar = perfil.role === "admin" || perfil.role === "compras";
   const cargar = useCallback(() => listarOrdenes().then(setOrdenes).catch((e) => setAviso({ tipo: "error", texto: e.message })), []);
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => {
@@ -144,6 +231,34 @@ export default function Ordenes() {
       setEnviandoReporte(false);
     }
   }
+  async function guardarCantidad(linea, cantidad) {
+    setGuardando(true);
+    try {
+      await actualizarCantidadLinea(linea.id, cantidad);
+      await cargar();
+      setAviso({ tipo: "success", texto: `Cantidad de ${linea.product_code ?? linea.products?.codigo} actualizada a ${cantidad} unidad(es).` });
+      setEditandoLinea(null);
+    } catch (e) {
+      setAviso({ tipo: "error", texto: e.message });
+    } finally {
+      setGuardando(false);
+    }
+  }
+  async function cerrarIncompleta(orden, tipo, nota) {
+    setGuardando(true);
+    try {
+      const r = await cerrarOrdenIncompleta(orden.id, tipo, nota);
+      await cargar();
+      setAviso({ tipo: "success", texto: tipo === "devuelta"
+        ? `Orden ${orden.folio} cancelada: se devolvieron ${r?.unidades_devueltas ?? 0} unidad(es) y se restaron del stock.`
+        : `Orden ${orden.folio} cerrada con lo recibido: el proveedor canceló el faltante.` });
+      setCierre(null);
+    } catch (e) {
+      setAviso({ tipo: "error", texto: e.message });
+    } finally {
+      setGuardando(false);
+    }
+  }
   // Abre la orden con formato profesional en otra pestaña; desde ahí se guarda como PDF.
   function imprimir(orden) {
     const ventana = window.open("", "_blank");
@@ -179,11 +294,22 @@ export default function Ordenes() {
         {(perfil.role === "admin" || perfil.role === "compras") && o.estado === "enviada" && <button type="button" onClick={() => confirmar(o)}>Confirmar pedido del proveedor</button>}
         {(perfil.role === "admin" || perfil.role === "compras") && o.estado === "recibida parcial" && !o.incompleta_alert_id && <button type="button" className="danger" onClick={() => setReportando(o)}>Reportar entrega incompleta</button>}
         {o.incompleta_alert_id && <span className="badge warn">Faltante reportado al proveedor</span>}
+        {puedeComprar && o.estado === "recibida parcial" && o.incompleta_alert_id && <>
+          <button type="button" onClick={() => setCierre({ orden: o, tipo: "faltante_cancelado" })}>Proveedor canceló el faltante</button>
+          <button type="button" className="danger" onClick={() => setCierre({ orden: o, tipo: "devuelta" })}>Devolver lo recibido</button>
+        </>}
       </div>
+      {puedeComprar && o.estado === "recibida parcial" && o.incompleta_alert_id && <p className="muted">Faltante reclamado. Si el proveedor envía lo que falta, Almacén registra la recepción en cada línea; si no, cierra la orden con una de las opciones.</p>}
+      {o.cierre_tipo && <p className="order-closure"><span className={`badge ${o.cierre_tipo === "devuelta" ? "low" : "warn"}`}>
+        {o.cierre_tipo === "devuelta" ? "Devuelta al proveedor" : "Faltante cancelado por el proveedor"}</span>
+        {o.cerrada_at && <span className="muted"> · {fechaLocal(o.cerrada_at)}</span>}{o.cierre_nota && <span> · {o.cierre_nota}</span>}</p>}
       {o.estado === "enviada" && <p className="muted">La recepción se habilita cuando Compras confirma que el proveedor aceptó la orden.</p>}
       <ul>{o.orden_lineas?.map((l) => <li key={l.id}>{l.product_code ?? l.products?.codigo} · {l.product_name ?? l.products?.nombre}: {l.recibida}/{l.cantidad} unidades
-        {(perfil.role === "admin" || perfil.role === "almacen") && ["confirmada", "recibida parcial"].includes(o.estado) && <button type="button" onClick={() => recibir(l)}>Registrar recepción</button>}</li>)}</ul>
+        {puedeComprar && o.estado === "borrador" && <button type="button" onClick={() => setEditandoLinea({ linea: l, proveedorId: o.proveedor_id })}>Cambiar cantidad</button>}
+        {(perfil.role === "admin" || perfil.role === "almacen") && ["confirmada", "recibida parcial"].includes(o.estado) && l.recibida < l.cantidad && <button type="button" onClick={() => recibir(l)}>Registrar recepción</button>}</li>)}</ul>
     </article>)}</div>
     {reportando && <ReporteFaltante orden={reportando} ocupado={enviandoReporte} onEnviar={reportarFaltante} onCerrar={cerrarReporte} />}
+    {editandoLinea && <CambiarCantidad linea={editandoLinea.linea} proveedorId={editandoLinea.proveedorId} ocupado={guardando} onGuardar={guardarCantidad} onCerrar={cerrarEdicion} />}
+    {cierre && <CierreIncompleta orden={cierre.orden} tipo={cierre.tipo} ocupado={guardando} onConfirmar={cerrarIncompleta} onCerrar={cerrarCierre} />}
   </Pagina>;
 }

@@ -170,3 +170,31 @@ Pendientes funcionales y de aceptación tras integrar las PR #2–#9:
 7. **Entrega académica:** terminar documentación académica, presentación y demo en vivo.
 8. **Opcional:** trasladar a la ventana modal propia las confirmaciones de Registrar recepción, Eliminar producto y Borrar todos los productos.
 9. **Después de la demo:** devolver `DEMO_MODE=true` si el entorno debe quedar sin envíos reales.
+
+---
+
+## 9. Cantidad al comprar, búsqueda y cierre de órdenes incompletas (rama `feat/cantidad-busqueda-cancelacion`)
+
+**Migración `0029_cantidad_y_cierre_ordenes.sql`** (pendiente de aplicar en remoto).
+
+### Elegir la cantidad al comprar
+- "Armar orden" (Dashboard, Reabastecer primero de Inventario y el enlace del correo de alerta) y "Crear borradores agrupados" abren una ventana para elegir cuántas unidades pedir de cada producto.
+- Se propone la cantidad sugerida. **No se puede pedir menos de lo que falta para llegar al stock mínimo** (stock mínimo − stock actual, al menos 1), ni menos de lo que vende como mínimo el proveedor. La base aplica la misma regla en `crear_ordenes_agrupadas`.
+- Mientras la orden es **borrador**, cada línea tiene "Cambiar cantidad" con la misma regla (`actualizar_cantidad_linea_borrador`). La ventana obtiene el mínimo de unidades de la asignación producto-proveedor y lo valida antes de guardar; la base vuelve a aplicar ambas reglas. Cubre también los borradores creados desde Historial de alertas.
+- Reglas en `web/src/lib/compras.js`; ventana en `web/src/componentes/CantidadCompra.jsx`.
+
+### Buscar al elegir producto y proveedor
+- Nuevo componente `SelectorBuscable.jsx`: se escribe para filtrar (sin distinguir mayúsculas ni acentos), con teclado (flechas, Enter, Escape) y accesible.
+- Se usa en "Asignar proveedor a producto existente" (Inventario), "Asignar producto" (Proveedores) y el proveedor de "Registrar producto".
+
+### Cierre de una orden incompleta ya reclamada
+Después de "Reportar entrega incompleta", Compras/Admin tienen tres salidas:
+1. **El proveedor envía lo que falta:** Almacén usa "Registrar recepción" (ya existía).
+2. **"Proveedor canceló el faltante":** la orden pasa a `cerrada incompleta` con lo recibido; el stock no cambia.
+3. **"Devolver lo recibido":** se resta del stock lo recibido (salida con motivo "otro") y la orden queda `cancelada`. Si ya no hay stock suficiente, no se permite.
+
+- Ambas piden confirmación en una ventana, con nota opcional, y quedan visibles en la orden (tipo, fecha y nota). No se pueden deshacer.
+- Base: función `cerrar_orden_incompleta`, columnas `cierre_tipo`, `cierre_nota`, `cerrada_at` y nuevo estado `cerrada incompleta`.
+- "Registrar recepción" ya no aparece en líneas recibidas por completo.
+
+Pruebas web: 252/252; incluyen validación del mínimo de stock y del proveedor al cambiar la cantidad de un borrador. Build correcto. La prueba SQL `T51` cubre el rechazo y aceptación de cantidades al cambiar un borrador; requiere aplicar la migración 0029 antes de ejecutar `supabase/tests/flujo.sql`.

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Pagina from "../componentes/Pagina.jsx";
+import SelectorBuscable from "../componentes/SelectorBuscable.jsx";
 import { eliminarProveedor, guardarProveedor, listarAsignacionesProductos, listarProveedores, vincularProductoProveedor } from "../lib/api.js";
 import { usePerfil } from "../lib/perfil.jsx";
 
@@ -196,19 +197,25 @@ export default function Proveedores() {
       {puedeGestionar && <form ref={asignarRef} className="card form-card" onSubmit={vincular}>
         <h3>Asignar producto</h3>
         <p>{sinProveedor.length} de {productos.length} productos no tienen proveedor activo. Seleccionar un producto ya asignado cambia su proveedor.</p>
-        <label>Proveedor<select name="proveedor_id" value={proveedorId} required onChange={(e) => {
-          const actual = asignaciones.get(Number(productoId));
-          if (actual && e.target.value !== String(actual.proveedor_id)) {
-            setCostoUnitario("");
-            setMinimoUnidades("1");
-          }
-          setProveedorId(e.target.value);
-        }}><option value="">Seleccionar</option>{activos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
-        <label>Producto<select name="product_id" value={productoId} required onChange={(e) => seleccionarProducto(productos.find((p) => String(p.id) === e.target.value))}><option value="">Seleccionar</option>{productos.map((p) => {
-          const actual = asignaciones.get(p.id);
-          const estado = actual?.proveedores?.activo ? ` - ${actual.proveedores.nombre}` : " - Sin proveedor activo";
-          return <option key={p.id} value={p.id}>{p.codigo} - {p.nombre}{estado}</option>;
-        })}</select></label>
+        <SelectorBuscable etiqueta="Proveedor" nombre="proveedor_id" requerido valor={proveedorId}
+          placeholder="Escribe el nombre del proveedor…"
+          onCambio={(valor) => {
+            const actual = asignaciones.get(Number(productoId));
+            if (actual && valor && valor !== String(actual.proveedor_id)) {
+              setCostoUnitario("");
+              setMinimoUnidades("1");
+            }
+            setProveedorId(valor);
+          }}
+          opciones={activos.map((p) => ({ valor: p.id, texto: p.nombre, detalle: p.correo }))} />
+        <SelectorBuscable etiqueta="Producto" nombre="product_id" requerido valor={productoId}
+          placeholder="Escribe código o nombre del producto…"
+          onCambio={(valor) => seleccionarProducto(productos.find((p) => String(p.id) === valor))}
+          opciones={productos.map((p) => {
+            const actual = asignaciones.get(p.id);
+            return { valor: p.id, texto: `${p.codigo} — ${p.nombre}`,
+              detalle: actual?.proveedores?.activo ? `Proveedor: ${actual.proveedores.nombre}` : "Sin proveedor activo" };
+          })} />
         <label>Costo unitario ($)<input name="costo_unitario" type="number" min="0" step="0.01" value={costoUnitario} onChange={(e) => setCostoUnitario(e.target.value)} required /></label>
         <label>Mínimo de unidades<input name="minimo_unidades" type="number" min="1" value={minimoUnidades} onChange={(e) => setMinimoUnidades(e.target.value)} required /></label>
         <button className="primary" disabled={ocupado || !proveedorId || !productoId}>Guardar asignación</button>

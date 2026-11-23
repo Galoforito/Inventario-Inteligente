@@ -724,6 +724,36 @@ begin
   end;
 end $$;
 
+-- T51: cambiar la cantidad de un borrador respeta tanto el faltante al mínimo
+-- del producto como el mínimo de venta definido por su proveedor.
+do $$
+declare
+  v_producto bigint;
+  v_proveedor bigint;
+  v_linea bigint;
+begin
+  perform pg_temp.limpiar();
+  v_producto := pg_temp.producto('OC51', 'Producto con mínimo de proveedor', 7, 12, 20);
+  insert into proveedores(nombre, correo)
+    values ('Proveedor T51', 't51@example.invalid') returning id into v_proveedor;
+  insert into proveedor_productos(proveedor_id, product_id, costo_unitario, minimo_unidades)
+    values (v_proveedor, v_producto, 18, 8);
+
+  perform crear_ordenes_agrupadas(jsonb_build_array(
+    jsonb_build_object('producto_id', v_producto, 'cantidad', 8)
+  ));
+  select l.id into v_linea
+    from orden_lineas l where l.product_id = v_producto;
+
+  perform pg_temp.debe_fallar('T51 mínimo proveedor',
+    format('select actualizar_cantidad_linea_borrador(%s, 7)', v_linea),
+    '22023', 'El proveedor vende como mínimo 8 unidad(es) de este producto.');
+  assert (actualizar_cantidad_linea_borrador(v_linea, 10)->>'cantidad') = '10',
+    'T51: debe permitir guardar una cantidad que cubra ambos mínimos';
+  assert (select cantidad from orden_lineas where id = v_linea) = 10,
+    'T51: la cantidad válida queda guardada en el borrador';
+end $$;
+
 -- ---------------------------------------------------------------------------
 select 'TODAS LAS PRUEBAS PASARON' as resultado;
 rollback;

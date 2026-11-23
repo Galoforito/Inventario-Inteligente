@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { resolverCategoria } from "../lib/categorias.js";
+import SelectorBuscable from "./SelectorBuscable.jsx";
 
 const CREAR_CATEGORIA = "__crear_categoria__";
 
@@ -26,13 +27,9 @@ export default function FormularioProducto({ categorias, proveedores = [], ocupa
       <form className="form-grid" onSubmit={enviar}>
         <p className="field-note">El código se asignará automáticamente al guardar y no se puede modificar.</p>
         <label>Nombre<input name="nombre" maxLength={120} required /></label>
-        <label>Proveedor activo
-          <select name="proveedor_id" value={proveedorSeleccionado} required
-            onChange={(e) => setProveedorSeleccionado(e.target.value)}>
-            <option value="">Selecciona un proveedor</option>
-            {proveedores.map((proveedor) => <option key={proveedor.id} value={proveedor.id}>{proveedor.nombre}</option>)}
-          </select>
-        </label>
+        <SelectorBuscable etiqueta="Proveedor activo" nombre="proveedor_id" requerido valor={proveedorSeleccionado}
+          placeholder="Escribe el nombre del proveedor…" onCambio={setProveedorSeleccionado}
+          opciones={proveedores.map((proveedor) => ({ valor: proveedor.id, texto: proveedor.nombre, detalle: proveedor.correo }))} />
         {proveedores.length === 0 && <p className="field-note">Primero un usuario de Compras o Admin debe registrar un proveedor activo.</p>}
         <label>Categoría
           <select aria-label="Categoría" value={categoriaSeleccionada} required

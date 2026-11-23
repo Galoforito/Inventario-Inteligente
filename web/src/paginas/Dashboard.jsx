@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import GraficaPronostico from "../componentes/GraficaPronostico.jsx";
 import Pagina from "../componentes/Pagina.jsx";
-import { cargarDashboard, crearOrdenRapida, crearOrdenesAgrupadas } from "../lib/api.js";
+import { cargarDashboard, crearOrdenesAgrupadas } from "../lib/api.js";
+import CantidadCompra from "../componentes/CantidadCompra.jsx";
 import {
   DIAS_ATENCION, DIAS_CRITICO, DIAS_EXCESO, ESTADOS, ESTADOS_CATEGORIA, SIN_CATEGORIA,
   enriquecerProductos, filtrarCategoria, requierenAtencion, resumenCategorias, tarjetas,
@@ -47,6 +48,8 @@ export default function Dashboard() {
   const [categoria, setCategoria] = useState("");
   const [productoId, setProductoId] = useState(null);
   const [productosSeleccionados, setProductosSeleccionados] = useState(() => new Set());
+  const [pedido, setPedido] = useState(null); // productos cuya cantidad se está eligiendo
+  const cerrarPedido = useCallback(() => setPedido(null), []);
   const [periodo, setPeriodo] = useState(30);
   const [horizonte, setHorizonte] = useState(30);
 
@@ -104,16 +107,11 @@ export default function Dashboard() {
       limpiarSolicitud();
       return;
     }
+    // Antes de crear el borrador se pide la cantidad en la misma ventana que el resto de botones.
     setProductoId(id);
-    setOcupado(true);
-    crearOrdenRapida(producto.id, Math.max(1, producto.sugerido))
-      .then((orden) => navegar("/ordenes", { state: { aviso: { tipo: "success", texto: `Borrador ${orden.folio} listo para ${orden.proveedor}, con ${orden.cantidad} unidad(es).` } } }))
-      .catch((motivo) => {
-        setAviso({ tipo: "error", texto: motivo.message });
-        limpiarSolicitud();
-      })
-      .finally(() => setOcupado(false));
-  }, [datos, solicitudOrden, setParametros, puedeOrdenar, todos, navegar]);
+    setPedido([producto]);
+    limpiarSolicitud();
+  }, [datos, solicitudOrden, setParametros, puedeOrdenar, todos]);
 
   // Producto de la gráfica: el elegido si sigue visible; si no, el primero con ventas que requiera atención.
   const conVentas = visibles.filter((p) => p.consumo_diario_exacto > 0);
@@ -133,15 +131,9 @@ export default function Dashboard() {
     setCategoria((actual) => (actual === nombre ? "" : nombre));
   }
 
-  async function armarOrden(p) {
-    setOcupado(true);
-    try {
-      const orden = await crearOrdenRapida(p.id, Math.max(1, p.sugerido));
-      navegar("/ordenes", { state: { aviso: { tipo: "success", texto: `Borrador ${orden.folio} listo para ${orden.proveedor}, con ${orden.cantidad} unidad(es).` } } });
-    } catch (motivo) {
-      setAviso({ tipo: "error", texto: motivo.message });
-      setOcupado(false);
-    }
+  // Abre la ventana para elegir la cantidad; el borrador se crea al confirmar.
+  function armarOrden(p) {
+    setPedido([p]);
   }
 
   function seleccionarProductoOrden(productoIdSeleccionado, seleccionado) {
@@ -153,23 +145,27 @@ export default function Dashboard() {
     });
   }
 
-  async function armarOrdenesAgrupadas() {
+  function armarOrdenesAgrupadas() {
     const seleccion = atencion.filter((p) => p.proveedor && productosSeleccionados.has(p.id));
-    if (seleccion.length === 0) return;
+    if (seleccion.length > 0) setPedido(seleccion);
+  }
+
+  // Crea los borradores con las cantidades elegidas (uno por proveedor).
+  async function confirmarPedido(items) {
     setOcupado(true);
     try {
-      const resultado = await crearOrdenesAgrupadas(seleccion.map((p) => ({
-        producto_id: p.id,
-        cantidad: Math.max(1, p.sugerido),
-      })));
+      const resultado = await crearOrdenesAgrupadas(items);
       const borradores = resultado.ordenes ?? [];
       const detalle = borradores.map((orden) => `${orden.folio} para ${orden.proveedor}`).join("; ");
       navegar("/ordenes", { state: { aviso: {
         tipo: "success",
-        texto: `${resultado.total_productos ?? seleccion.length} producto(s) agrupados en ${borradores.length} borrador(es), uno por proveedor: ${detalle}.`,
+        texto: items.length === 1
+          ? `Borrador ${detalle} listo, con ${items[0].cantidad} unidad(es).`
+          : `${resultado.total_productos ?? items.length} producto(s) agrupados en ${borradores.length} borrador(es), uno por proveedor: ${detalle}.`,
       } } });
     } catch (motivo) {
       setAviso({ tipo: "error", texto: motivo.message });
+      setPedido(null);
       setOcupado(false);
     }
   }
@@ -350,6 +346,7 @@ export default function Dashboard() {
           </ul>
         </section>
       </>}
+      {pedido && <CantidadCompra productos={pedido} ocupado={ocupado} onConfirmar={confirmarPedido} onCerrar={cerrarPedido} />}
     </Pagina>
   );
 }

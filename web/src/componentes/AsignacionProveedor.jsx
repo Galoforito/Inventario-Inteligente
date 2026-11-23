@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import SelectorBuscable from "./SelectorBuscable.jsx";
 
 /** Asigna o cambia el proveedor activo de un producto existente. */
 export default function AsignacionProveedor({ productos = [], proveedores = [], relaciones = [], ocupado, onGuardar }) {
@@ -43,28 +44,23 @@ export default function AsignacionProveedor({ productos = [], proveedores = [], 
     <h3>Asignar proveedor a producto existente</h3>
     <p>{sinProveedor} de {productos.length} productos no tienen proveedor activo. Puedes seleccionar uno ya asignado para cambiarlo.</p>
     <form className="form-grid" onSubmit={enviar}>
-      <label>Producto
-        <select value={productoId} onChange={(e) => elegirProducto(e.target.value)} required>
-          <option value="">Selecciona un producto</option>
-          {productos.map((item) => {
-            const relacion = porProducto.get(item.id);
-            const estado = relacion?.proveedores?.activo ? ` · ${relacion.proveedores.nombre}` : " · Sin proveedor activo";
-            return <option key={item.id} value={item.id}>{item.codigo} — {item.nombre}{estado}</option>;
-          })}
-        </select>
-      </label>
-      <label>Proveedor activo
-        <select value={proveedorId} onChange={(e) => {
-          if (actual && e.target.value !== String(actual.proveedor_id)) {
+      <SelectorBuscable etiqueta="Producto" requerido valor={productoId} onCambio={elegirProducto}
+        placeholder="Escribe código o nombre del producto…"
+        opciones={productos.map((item) => {
+          const relacion = porProducto.get(item.id);
+          return { valor: item.id, texto: `${item.codigo} — ${item.nombre}`,
+            detalle: relacion?.proveedores?.activo ? `Proveedor: ${relacion.proveedores.nombre}` : "Sin proveedor activo" };
+        })} />
+      <SelectorBuscable etiqueta="Proveedor activo" requerido valor={proveedorId}
+        placeholder="Escribe el nombre del proveedor…"
+        onCambio={(valor) => {
+          if (actual && valor && valor !== String(actual.proveedor_id)) {
             setCostoUnitario("");
             setMinimoUnidades("1");
           }
-          setProveedorId(e.target.value);
-        }} required>
-          <option value="">Selecciona un proveedor</option>
-          {proveedores.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
-        </select>
-      </label>
+          setProveedorId(valor);
+        }}
+        opciones={proveedores.map((item) => ({ valor: item.id, texto: item.nombre, detalle: item.correo }))} />
       {actual && proveedorId && proveedorId !== String(actual.proveedor_id) && <p className="field-note">Al cambiar de proveedor, confirma el costo unitario actualizado.</p>}
       <label>Costo unitario ($)<input type="number" min="0" step="0.01" value={costoUnitario} onChange={(e) => setCostoUnitario(e.target.value)} required /></label>
       <label>Mínimo de unidades<input type="number" min="1" step="1" value={minimoUnidades} onChange={(e) => setMinimoUnidades(e.target.value)} required /></label>

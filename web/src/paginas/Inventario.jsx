@@ -5,9 +5,10 @@ import AsignacionProveedor from "../componentes/AsignacionProveedor.jsx";
 import ImportarExcel from "../componentes/ImportarExcel.jsx";
 import Pagina from "../componentes/Pagina.jsx";
 import Prioridad from "../componentes/Prioridad.jsx";
+import CantidadCompra from "../componentes/CantidadCompra.jsx";
 import TablaProductos from "../componentes/TablaProductos.jsx";
 import {
-  cargarInventario, crearOrdenRapida, eliminarProducto, eliminarTodosProductos, guardarProducto, importarProductos, registrarMovimiento, revisarAhora, vincularProductoProveedor,
+  cargarInventario, crearOrdenesAgrupadas, eliminarProducto, eliminarTodosProductos, guardarProducto, importarProductos, registrarMovimiento, revisarAhora, vincularProductoProveedor,
 } from "../lib/api.js";
 import { avisoRevision } from "../lib/avisos.js";
 import { crearExcel, descargar, leerExcel, revisarArchivo } from "../lib/excel.js";
@@ -26,6 +27,8 @@ export default function Inventario() {
   const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [ocupado, setOcupado] = useState(false);
+  const [pedido, setPedido] = useState(null); // producto cuya cantidad se está eligiendo
+  const cerrarPedido = useCallback(() => setPedido(null), []);
 
   const cargar = useCallback(async () => {
     try {
@@ -72,13 +75,20 @@ export default function Inventario() {
     "Proveedor asignado al producto.",
   );
 
-  async function alCrearOrdenRapida(producto) {
+  // "Armar orden" abre la ventana para elegir la cantidad; el borrador se crea al confirmar.
+  function alCrearOrdenRapida(producto) {
+    setPedido([producto]);
+  }
+
+  async function confirmarPedido(items) {
     setOcupado(true);
     try {
-      const orden = await crearOrdenRapida(producto.id, producto.sugerido);
-      navegar("/ordenes", { state: { aviso: { tipo: "success", texto: `Borrador ${orden.folio} listo para ${orden.proveedor}, con ${orden.cantidad} unidad(es).` } } });
+      const resultado = await crearOrdenesAgrupadas(items);
+      const orden = resultado.ordenes?.[0];
+      navegar("/ordenes", { state: { aviso: { tipo: "success", texto: `Borrador ${orden?.folio ?? ""} listo para ${orden?.proveedor ?? "el proveedor"}, con ${items[0].cantidad} unidad(es).` } } });
     } catch (motivo) {
       setAviso({ tipo: "error", texto: motivo.message });
+      setPedido(null);
     } finally {
       setOcupado(false);
     }
@@ -170,6 +180,7 @@ export default function Inventario() {
 
       <TablaProductos productos={productos} categorias={categorias} ocupado={ocupado} puedeEditar={puedeEditar} puedeEliminar={perfil.role === "admin"}
         onMovimiento={alMover} onEditar={alEditar} onEliminar={alEliminar} />
+      {pedido && <CantidadCompra productos={pedido} ocupado={ocupado} onConfirmar={confirmarPedido} onCerrar={cerrarPedido} />}
     </Pagina>
   );
 }

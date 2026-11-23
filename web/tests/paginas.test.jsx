@@ -38,6 +38,8 @@ vi.mock("../src/lib/api.js", () => ({
   enviarOrdenProveedor: vi.fn(),
   confirmarOrdenCompra: vi.fn(),
   reportarEntregaIncompleta: vi.fn(),
+  actualizarCantidadLinea: vi.fn(),
+  cerrarOrdenIncompleta: vi.fn(),
   listarPerfiles: vi.fn(),
   actualizarPerfil: vi.fn(),
   crearUsuario: vi.fn(),
@@ -53,6 +55,20 @@ const SUFICIENTE = { id: 2, codigo: "P008", nombre: "Grapadora", categoria: "Ofi
 
 function abrir(ruta = "/") {
   return render(<MemoryRouter initialEntries={[ruta]}><App /></MemoryRouter>);
+}
+
+// Escribe en una lista con búsqueda y elige la opción que coincide.
+function elegirOpcion(contenedor, etiqueta, texto) {
+  const entrada = within(contenedor).getByRole("combobox", { name: etiqueta });
+  fireEvent.focus(entrada);
+  fireEvent.change(entrada, { target: { value: texto } });
+  fireEvent.mouseDown(within(contenedor).getByRole("option", { name: new RegExp(texto) }));
+}
+
+// Confirma la ventana "Armar orden" con las cantidades propuestas.
+async function confirmarCantidad() {
+  const ventana = await screen.findByRole("dialog");
+  fireEvent.click(within(ventana).getByRole("button", { name: /^Crear/ }));
 }
 
 beforeEach(() => {
@@ -107,12 +123,13 @@ describe("Inventario", () => {
   });
 
   it("Admin puede armar una orden desde Reabastecer primero con stock positivo", async () => {
-    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-PANEL", proveedor: "Proveedor", cantidad: 5 });
+    api.crearOrdenesAgrupadas.mockResolvedValue({ ordenes: [{ folio: "OC-PANEL", proveedor: "Proveedor" }] });
     api.listarOrdenes.mockResolvedValue([]);
     abrir("/");
     const panel = (await screen.findByText("Reabastecer primero")).closest("section");
     fireEvent.click(within(panel).getByRole("button", { name: "Armar orden" }));
-    await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(1, 5));
+    await confirmarCantidad();
+    await waitFor(() => expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([{ producto_id: 1, cantidad: 5 }]));
   });
 
   it("Compras puede asignar a un producto un proveedor desde Inventario", async () => {
@@ -125,8 +142,8 @@ describe("Inventario", () => {
     api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
     abrir("/");
     const formulario = (await screen.findByRole("heading", { name: "Asignar proveedor a producto existente" })).closest("section");
-    fireEvent.change(within(formulario).getByLabelText("Producto"), { target: { value: "1" } });
-    fireEvent.change(within(formulario).getByLabelText("Proveedor activo"), { target: { value: "2" } });
+    elegirOpcion(formulario, "Producto", "P003");
+    elegirOpcion(formulario, "Proveedor activo", "Proveedor B");
     fireEvent.click(within(formulario).getByRole("button", { name: "Guardar asignación" }));
     await waitFor(() => expect(api.vincularProductoProveedor).toHaveBeenCalledWith(2, 1, 0, 1));
   });
@@ -182,7 +199,7 @@ describe("Inventario", () => {
     abrir();
     const formulario = (await screen.findByText("Registrar producto")).closest("section");
     const escribir = (etiqueta, valor) => fireEvent.change(within(formulario).getByLabelText(etiqueta), { target: { value: valor } });
-    escribir("Proveedor activo", "1");
+    elegirOpcion(formulario, "Proveedor activo", "Proveedor demo");
     // El código lo asigna la base; la categoría nueva se crea desde el selector.
     expect(within(formulario).queryByLabelText("Código")).toBeNull();
     escribir("Nombre", "Tijeras"); escribir("Categoría", "__crear_categoria__"); escribir("Nueva categoría", "Oficina");
@@ -406,7 +423,7 @@ describe("Asignación de proveedores", () => {
     const fila = screen.getByRole("row", { name: /P003/ });
     fireEvent.click(within(fila).getByRole("button", { name: "Asignar" }));
     const formulario = screen.getByRole("heading", { name: "Asignar producto" }).closest("form");
-    fireEvent.change(within(formulario).getByLabelText("Proveedor"), { target: { value: "2" } });
+    elegirOpcion(formulario, "Proveedor", "Proveedor B");
     fireEvent.click(within(formulario).getByRole("button", { name: "Guardar asignación" }));
     await waitFor(() => expect(api.vincularProductoProveedor).toHaveBeenCalledWith(2, 1, 0, 1));
   });
@@ -429,12 +446,15 @@ describe("Dashboard", () => {
   it("Compras crea un borrador al abrir el enlace de una alerta", async () => {
     api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
     api.cargarDashboard.mockResolvedValue(datosDashboard());
-    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-ALERTA", proveedor: "Papelera del Centro", cantidad: 4 });
+    api.crearOrdenesAgrupadas.mockResolvedValue({ ordenes: [{ folio: "OC-ALERTA", proveedor: "Papelera del Centro" }] });
     api.listarOrdenes.mockResolvedValue([]);
     abrir("/dashboard?crearOrden=3");
+    // El enlace abre la ventana de cantidad con el producto de la alerta.
+    expect(within(await screen.findByRole("dialog")).getByText("P010")).toBeTruthy();
+    await confirmarCantidad();
     expect(await screen.findByRole("heading", { name: "Órdenes de compra" })).toBeTruthy();
-    expect(await screen.findByText(/Borrador OC-ALERTA listo para Papelera del Centro/)).toBeTruthy();
-    expect(api.crearOrdenRapida).toHaveBeenCalledWith(3, 4);
+    expect(await screen.findByText(/Borrador OC-ALERTA para Papelera del Centro listo/)).toBeTruthy();
+    expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([{ producto_id: 3, cantidad: 4 }]);
   });
 
   it("Consulta no puede crear un borrador desde un enlace de alerta", async () => {
@@ -460,24 +480,26 @@ describe("Dashboard", () => {
   it("Compras puede armar una orden para un producto agotado", async () => {
     api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
     api.cargarDashboard.mockResolvedValue(datosDashboard());
-    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-1", proveedor: "Papelera del Centro", cantidad: 4 });
+    api.crearOrdenesAgrupadas.mockResolvedValue({ ordenes: [{ folio: "OC-1", proveedor: "Papelera del Centro" }] });
     api.listarOrdenes.mockResolvedValue([]);
     abrir("/dashboard");
     const fila = (await screen.findByText("Engrapadora")).closest("tr");
     fireEvent.click(await within(fila).findByRole("button", { name: "Armar orden" }));
-    await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(3, 4));
+    await confirmarCantidad();
+    await waitFor(() => expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([{ producto_id: 3, cantidad: 4 }]));
   });
 
   it("Compras puede armar una orden para un producto en atención que aún tiene stock", async () => {
     api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
     api.cargarDashboard.mockResolvedValue(datosDashboard());
-    api.crearOrdenRapida.mockResolvedValue({ folio: "OC-2", proveedor: "Papelería Centro", cantidad: 7 });
+    api.crearOrdenesAgrupadas.mockResolvedValue({ ordenes: [{ folio: "OC-2", proveedor: "Papelería Centro" }] });
     api.listarOrdenes.mockResolvedValue([]);
     abrir("/dashboard");
     const tabla = (await screen.findByRole("heading", { name: /Requiere/ })).closest("section");
     const fila = within(tabla).getByText("Bolígrafo azul").closest("tr");
     fireEvent.click(await within(fila).findByRole("button", { name: "Armar orden" }));
-    await waitFor(() => expect(api.crearOrdenRapida).toHaveBeenCalledWith(1, 7));
+    await confirmarCantidad();
+    await waitFor(() => expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([{ producto_id: 1, cantidad: 7 }]));
   });
 
   it("agrupa productos seleccionados del mismo proveedor en un borrador por proveedor", async () => {
@@ -496,6 +518,7 @@ describe("Dashboard", () => {
     fireEvent.click(within(tabla).getByRole("checkbox", { name: "Seleccionar P003 para orden" }));
     fireEvent.click(within(tabla).getByRole("checkbox", { name: "Seleccionar P010 para orden" }));
     fireEvent.click(within(tabla).getByRole("button", { name: "Crear borradores agrupados (2)" }));
+    await confirmarCantidad();
 
     await waitFor(() => expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([
       { producto_id: 3, cantidad: 4 }, { producto_id: 1, cantidad: 7 },
@@ -788,5 +811,119 @@ describe("Entrega incompleta con la función desactualizada", () => {
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Enviar aviso al proveedor" }));
     expect(await screen.findByText(/parece desactualizada: vuelve a desplegarla/)).toBeTruthy();
     expect(screen.queryByText(/Aviso de entrega incompleta enviado/)).toBeNull();
+  });
+});
+
+describe("Cantidad, búsqueda y cierre de órdenes", () => {
+  const AGOTADO = { id: 3, codigo: "P010", nombre: "Engrapadora", categoria: "Oficina", stock_actual: 0, stock_minimo: 4, costo: 80, proveedor_minimo_unidades: 1 };
+  const datosDashboard = () => ({
+    productos: [BAJO, SUFICIENTE, AGOTADO], ventas: [], resumen: RESUMEN, categorias: [],
+    relaciones: [{ product_id: 3, proveedor_id: 1, costo_unitario: 70, proveedores: { nombre: "Papelera del Centro", activo: true } }],
+  });
+
+  it("no deja pedir menos de lo que falta para el stock mínimo y permite pedir más", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.cargarDashboard.mockResolvedValue(datosDashboard());
+    api.crearOrdenesAgrupadas.mockResolvedValue({ ordenes: [{ folio: "OC-9", proveedor: "Papelera del Centro" }] });
+    api.listarOrdenes.mockResolvedValue([]);
+    abrir("/dashboard");
+    const fila = (await screen.findByText("Engrapadora")).closest("tr");
+    fireEvent.click(await within(fila).findByRole("button", { name: "Armar orden" }));
+    const ventana = await screen.findByRole("dialog");
+    const cantidad = within(ventana).getByLabelText("Cantidad de P010");
+    expect(cantidad.value).toBe("4");
+    fireEvent.change(cantidad, { target: { value: "3" } });
+    expect(within(ventana).getByRole("alert").textContent).toMatch(/Mínimo 4/);
+    expect(within(ventana).getByRole("button", { name: "Crear borrador" }).disabled).toBe(true);
+    fireEvent.change(cantidad, { target: { value: "15" } });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Crear borrador" }));
+    await waitFor(() => expect(api.crearOrdenesAgrupadas).toHaveBeenCalledWith([{ producto_id: 3, cantidad: 15 }]));
+  });
+
+  it("el buscador filtra productos al escribir, sin importar acentos", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.cargarInventario.mockResolvedValue({ productos: [BAJO, SUFICIENTE], consumo: [], resumen: RESUMEN, proveedoresActivos: [{ id: 2, nombre: "Proveedor B" }], relaciones: [] });
+    abrir("/");
+    const formulario = (await screen.findByRole("heading", { name: "Asignar proveedor a producto existente" })).closest("section");
+    const entrada = within(formulario).getByRole("combobox", { name: "Producto" });
+    fireEvent.focus(entrada);
+    fireEvent.change(entrada, { target: { value: "boligrafo" } });
+    const opciones = within(formulario).getAllByRole("option");
+    expect(opciones).toHaveLength(1);
+    expect(opciones[0].textContent).toContain("Bolígrafo azul");
+    fireEvent.change(entrada, { target: { value: "zzz" } });
+    expect(within(formulario).getByText("Sin coincidencias.")).toBeTruthy();
+  });
+
+  const ORDEN = (cambios = {}) => ({
+    id: 7, folio: "OC-7", estado: "recibida parcial", proveedor_id: 1, created_at: "2026-11-20T18:00:00Z", incompleta_alert_id: 40,
+    proveedores: { nombre: "Papelera", correo: "ventas@papelera.test" },
+    orden_lineas: [{ id: 9, product_code: "P003", product_name: "Bolígrafo", cantidad: 10, recibida: 6, costo_unitario: 5,
+      products: { codigo: "P003", nombre: "Bolígrafo", stock_actual: 7, stock_minimo: 12,
+        proveedor_productos: [{ proveedor_id: 1, minimo_unidades: 1 }] } }],
+    ...cambios,
+  });
+
+  it("en un borrador se cambia la cantidad respetando el mínimo", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN({ estado: "borrador", incompleta_alert_id: null })]);
+    api.actualizarCantidadLinea.mockResolvedValue({ linea_id: 9, cantidad: 20 });
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Cambiar cantidad" }));
+    const ventana = screen.getByRole("dialog", { name: "Cambiar cantidad" });
+    const campo = within(ventana).getByLabelText("Unidades a comprar");
+    fireEvent.change(campo, { target: { value: "4" } });
+    expect(within(ventana).getByRole("alert").textContent).toMatch(/Mínimo 5/);
+    fireEvent.change(campo, { target: { value: "20" } });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Guardar cantidad" }));
+    await waitFor(() => expect(api.actualizarCantidadLinea).toHaveBeenCalledWith(9, 20));
+  });
+
+  it("al editar un borrador también valida el mínimo de venta del proveedor", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "compras", active: true });
+    const linea = ORDEN().orden_lineas[0];
+    api.listarOrdenes.mockResolvedValue([ORDEN({ estado: "borrador", incompleta_alert_id: null, orden_lineas: [{
+      ...linea,
+      products: { ...linea.products, proveedor_productos: [{ proveedor_id: 1, minimo_unidades: 8 }] },
+    }] })]);
+    abrir("/ordenes");
+    fireEvent.click(await screen.findByRole("button", { name: "Cambiar cantidad" }));
+    const ventana = screen.getByRole("dialog", { name: "Cambiar cantidad" });
+    const campo = within(ventana).getByLabelText("Unidades a comprar");
+    fireEvent.change(campo, { target: { value: "7" } });
+    expect(within(ventana).getByRole("alert").textContent).toMatch(/Mínimo 8: es lo menos que vende el proveedor/);
+    expect(within(ventana).getByRole("button", { name: "Guardar cantidad" }).disabled).toBe(true);
+  });
+
+  it("tras reclamar el faltante: recibir, cancelar faltante o devolver", async () => {
+    api.obtenerPerfil.mockResolvedValue({ role: "admin", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN()]);
+    api.cerrarOrdenIncompleta.mockResolvedValue({ estado: "cancelada", unidades_devueltas: 6 });
+    abrir("/ordenes");
+    expect(await screen.findByRole("button", { name: "Registrar recepción" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Proveedor canceló el faltante" }));
+    expect(screen.getByRole("dialog", { name: "El proveedor canceló el faltante" })).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Devolver lo recibido" }));
+    const ventana = screen.getByRole("dialog", { name: "Devolver lo recibido al proveedor" });
+    expect(within(ventana).getByText("Se restarán 6 unidad(es) del inventario.")).toBeTruthy();
+    fireEvent.change(within(ventana).getByRole("textbox"), { target: { value: "Mercancía dañada" } });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Registrar devolución y cancelar" }));
+    await waitFor(() => expect(api.cerrarOrdenIncompleta).toHaveBeenCalledWith(7, "devuelta", "Mercancía dañada"));
+    expect(await screen.findByText(/se devolvieron 6 unidad\(es\)/)).toBeTruthy();
+  });
+
+  it("muestra el cierre y oculta las acciones; Almacén no ve las opciones de cierre", async () => {
+    api.listarOrdenes.mockResolvedValue([ORDEN({ estado: "cerrada incompleta", cierre_tipo: "faltante_cancelado", cierre_nota: "Sin existencias", cerrada_at: "2026-11-24T18:00:00Z" })]);
+    abrir("/ordenes");
+    expect(await screen.findByText("Faltante cancelado por el proveedor")).toBeTruthy();
+    expect(screen.getByText(/Sin existencias/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Registrar recepción" })).toBeNull();
+    cleanup();
+    api.obtenerPerfil.mockResolvedValue({ role: "almacen", active: true });
+    api.listarOrdenes.mockResolvedValue([ORDEN()]);
+    abrir("/ordenes");
+    expect(await screen.findByRole("button", { name: "Registrar recepción" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Proveedor canceló el faltante" })).toBeNull();
   });
 });
