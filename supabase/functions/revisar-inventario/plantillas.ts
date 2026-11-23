@@ -123,7 +123,7 @@ function etiqueta(texto: string, color: string, fondo: string): string {
 // ---- Alerta de stock bajo -----------------------------------------------------
 
 /** Correo de alerta: encabezado rojo y una tabla con los productos bajo su mínimo. */
-export function htmlAlerta(alerta: { items: unknown }): string {
+export function htmlAlerta(alerta: { items: unknown; actionUrl?: string }): string {
   const items = alerta.items as Fila[];
   const cuantos = items.length;
 
@@ -142,6 +142,19 @@ export function htmlAlerta(alerta: { items: unknown }): string {
       total += reponer;
       hayCostos = true;
     }
+    let accion = "—";
+    const productId = numero(item.id);
+    if (alerta.actionUrl && productId !== null && Number.isSafeInteger(productId) && productId > 0) {
+      try {
+        const url = new URL(alerta.actionUrl);
+        if (url.protocol === "https:" || url.protocol === "http:") {
+          url.searchParams.set("crearOrden", String(productId));
+          accion = `<a href="${escapar(url.toString())}" style="display:inline-block;padding:8px 12px;border-radius:6px;background:${MARINO};color:#fff;text-decoration:none;font-weight:bold;white-space:nowrap;">Crear borrador</a>`;
+        }
+      } catch {
+        // Si APP_URL está mal configurada, no generar un enlace potencialmente inseguro.
+      }
+    }
     return `<tr>`
       + td(escapar(item.codigo), "font-weight:bold;")
       + td(escapar(item.nombre))
@@ -150,6 +163,7 @@ export function htmlAlerta(alerta: { items: unknown }): string {
       + td(entero(faltante), `${DER}color:${ROJO};font-weight:bold;`)
       + td(dinero(costo), DER)
       + td(dinero(reponer), `${DER}font-weight:bold;`)
+      + td(accion)
       + `</tr>`;
   }).join("");
 
@@ -168,7 +182,7 @@ export function htmlAlerta(alerta: { items: unknown }): string {
     + `Estos productos cayeron por debajo de su stock mínimo y necesitan reabastecerse.</p>`
     + tabla(
       th("Código") + th("Producto") + th("Stock actual", true) + th("Mínimo", true)
-        + th("Faltante", true) + th("Costo unitario", true) + th("Costo de reposición", true),
+        + th("Faltante", true) + th("Costo unitario", true) + th("Costo de reposición", true) + th("Acción"),
       filas + filaTotal,
     )
     + `<p style="margin:16px 0 0;font-size:12px;color:${GRIS};line-height:1.5;">`
@@ -319,13 +333,13 @@ function htmlEntregaIncompleta(items: Fila[], titulo?: string): string {
   </div></div></body></html>`;
 }
 
-export function htmlCorreo(alerta: { tipo?: string; items?: unknown; link?: string; subject?: string }): string | undefined {
+export function htmlCorreo(alerta: { tipo?: string; items?: unknown; link?: string; actionUrl?: string; subject?: string }): string | undefined {
   try {
     const tipo = alerta.tipo ?? "stock_bajo";
     if (tipo === "stock_bajo") {
       const items = alerta.items;
       if (!Array.isArray(items) || items.length === 0 || !items.every(esObjeto)) return undefined;
-      return htmlAlerta({ items });
+      return htmlAlerta({ items, actionUrl: alerta.actionUrl });
     }
     if (tipo === "reporte_semanal") {
       const r = alerta.items;

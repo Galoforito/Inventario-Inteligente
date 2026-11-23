@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import GraficaPronostico from "../componentes/GraficaPronostico.jsx";
 import Pagina from "../componentes/Pagina.jsx";
 import { cargarDashboard, crearOrdenRapida } from "../lib/api.js";
@@ -37,6 +37,9 @@ export default function Dashboard() {
   const perfil = usePerfil();
   const puedeOrdenar = perfil.role === "admin" || perfil.role === "compras";
   const navegar = useNavigate();
+  const [parametros, setParametros] = useSearchParams();
+  const solicitudOrden = parametros.get("crearOrden");
+  const solicitudProcesada = useRef(null);
   const [datos, setDatos] = useState(null);
   const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -65,6 +68,44 @@ export default function Dashboard() {
   const visibles = useMemo(() => filtrarCategoria(todos, categoria), [todos, categoria]);
   const totales = useMemo(() => tarjetas(visibles), [visibles]);
   const atencion = useMemo(() => requierenAtencion(visibles), [visibles]);
+
+  // El enlace del correo llega aquí con una solicitud de reabasto. El RPC
+  // vuelve a comprobar rol, stock, cobertura y proveedor antes de crear el borrador.
+  useEffect(() => {
+    if (!solicitudOrden || !datos || solicitudProcesada.current === solicitudOrden) return;
+    solicitudProcesada.current = solicitudOrden;
+    const limpiarSolicitud = () => setParametros((actuales) => {
+      const siguientes = new URLSearchParams(actuales);
+      siguientes.delete("crearOrden");
+      return siguientes;
+    }, { replace: true });
+    const id = Number(solicitudOrden);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      setAviso({ tipo: "error", texto: "El enlace de reabastecimiento no contiene un producto válido." });
+      limpiarSolicitud();
+      return;
+    }
+    if (!puedeOrdenar) {
+      setAviso({ tipo: "error", texto: "Solo Compras o Admin pueden crear borradores de compra desde una alerta." });
+      limpiarSolicitud();
+      return;
+    }
+    const producto = todos.find((p) => p.id === id);
+    if (!producto) {
+      setAviso({ tipo: "error", texto: "El producto de la alerta ya no está disponible en el inventario." });
+      limpiarSolicitud();
+      return;
+    }
+    setProductoId(id);
+    setOcupado(true);
+    crearOrdenRapida(producto.id, Math.max(1, producto.sugerido))
+      .then((orden) => navegar("/ordenes", { state: { aviso: { tipo: "success", texto: `Borrador ${orden.folio} listo para ${orden.proveedor}, con ${orden.cantidad} unidad(es).` } } }))
+      .catch((motivo) => {
+        setAviso({ tipo: "error", texto: motivo.message });
+        limpiarSolicitud();
+      })
+      .finally(() => setOcupado(false));
+  }, [datos, solicitudOrden, setParametros, puedeOrdenar, todos, navegar]);
 
   // Producto de la gráfica: el elegido si sigue visible; si no, el primero con ventas que requiera atención.
   const conVentas = visibles.filter((p) => p.consumo_diario_exacto > 0);

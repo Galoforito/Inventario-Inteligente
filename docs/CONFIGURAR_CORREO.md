@@ -2,7 +2,7 @@
 
 La Edge Function actual usa SMTP TLS y requiere los secretos del servicio Supabase. Copia el esquema de `supabase/functions/.env.example` al almacén **Edge Functions → Secrets**. No pongas secretos en `web/.env.local`, commits ni en el frontend.
 
-1. Configura `SMTP_HOST`, `SMTP_PORT=465`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `ALERT_TO` y `APP_URL` (origen público/privado de la app; es necesario para enlazar órdenes).
+1. Configura `SMTP_HOST`, `SMTP_PORT=465`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `ALERT_TO` y `APP_URL` (origen público/privado de la app; se usa para enlazar órdenes y crear borradores desde alertas de stock).
 2. Para Gmail, usa contraseña de aplicación. El puerto 25/587 no está soportado en este despliegue; se usa TLS directo en 465.
 3. Mantén `DEMO_MODE=true` para cualquier demo pública. La función no enviará correos, aunque SMTP esté configurado.
 4. Para una prueba privada y autorizada, establece temporalmente `DEMO_MODE=false`, limita `ALERT_TO` a una bandeja controlada y vuelve a desplegar la Edge Function.
